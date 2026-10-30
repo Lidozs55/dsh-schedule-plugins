@@ -14,6 +14,11 @@ window.__ModuleLoader__.load({
     const { useState, useEffect } = React
     const h = React.createElement
     const api = require('@buaaer/dsh-schedule-buaa/client.api.js')
+    // Shared tip/help UI from the core bundle. The core materializes its own
+    // chunks inside its apply, so this sync `require` only sees them because
+    // the entry injects the core's `scheduleShared` service — cordis holds
+    // this bundle's fiber pending until that apply finished.
+    const { HelpTip } = require('@lidozs55/dsh-schedule/client.core.js')
 
     const zh = {
       'settings.title': '北航教务导入',
@@ -22,7 +27,7 @@ window.__ModuleLoader__.load({
       'settings.saved': '已保存',
       'settings.password': '统一认证密码',
       'settings.passwordHint': '仅用于本次导入，不保存。',
-      'settings.homework': '作业同步', 'settings.signin': '远程签到',
+      'settings.homework': '作业同步', 'settings.signin': '签到',
       'settings.sync': '立即导入',
       'settings.needId': '请先填写并保存学号',
       'settings.needPassword': '请填写统一认证密码',
@@ -33,8 +38,22 @@ window.__ModuleLoader__.load({
       'settings.done': '导入完成：日程 {entries} 条（新增 {created}、更新 {updated}、移除 {cleared}），覆盖第 {weeks} 周，考试 {exams} 条',
       'settings.overwrite': '导入将替换本学期课表与考试。',
       'settings.examFailed': '考试安排未能读取：{message}',
+      'settings.bykc': '博雅',
+      'settings.bykcEnabled': '同步博雅已选课程',
+      'settings.bykcHint': '随手动导入一起读取本学期已选博雅课程并写成课程条目；退选后再次导入即移除，无需保持应用运行。',
+      'settings.bykcOn': '已开启博雅课程同步',
+      'settings.bykcOff': '已关闭博雅课程同步',
+      'settings.bykcDisabled': '已关闭，保留已有条目；不影响课表与考试导入。',
+      'settings.bykcTerm': '上次读取学期：{term}',
+      'settings.bykcNever': '尚未随导入读取。',
+      'settings.bykcLast': '上次导入：{time}',
+      'settings.bykcTimeNever': '尚未导入',
+      'settings.bykcDone': '博雅课程 {total} 条（新增 {created}、更新 {updated}、移除 {cleared}）',
+      'settings.bykcSkippedCount': '，无效时间 {count} 条已跳过',
+      'settings.bykcFailed': '博雅课程同步失败：{message}',
+      'settings.bykcSkipped': '博雅同步已跳过（设置已变更）',
       'settings.spocEnabled': '同步 SPOC 未提交作业',
-      'settings.spocHint': '应用运行且已连接时每 30 分钟同步；同名手建待办也会校正截止时间。',
+      'settings.spocHint': '应用运行期间自动同步（约每 30 分钟）；同名手建待办的截止时间也会一并校正。',
       'settings.spocOn': '已开启 SPOC 作业同步',
       'settings.spocOff': '已关闭 SPOC 作业同步',
       'settings.spocDisabled': '已关闭，保留已有待办；不影响课表与考试导入。',
@@ -47,8 +66,8 @@ window.__ModuleLoader__.load({
       'settings.spocSkipped': 'SPOC 同步已跳过（设置或会话已变更）',
       'settings.signinSession': '已就绪 · {user}；在当天北航课程条目中签到。',
       'settings.signinNoSession': '导入后可在当天北航课程条目中签到；应用重启后需重新导入。',
-      'settings.signinFailed': '远程签到会话建立失败：{message}',
-      'settings.signinDone': '远程签到已就绪：当天北航课程条目里可直接签到',
+      'settings.signinFailed': '签到会话建立失败：{message}',
+      'settings.signinDone': '签到已就绪：当天北航课程条目里可直接签到',
     }
 
     const en = {
@@ -58,7 +77,7 @@ window.__ModuleLoader__.load({
       'settings.saved': 'Saved',
       'settings.password': 'SSO password',
       'settings.passwordHint': 'Used for this import only. Never saved.',
-      'settings.homework': 'Homework sync', 'settings.signin': 'Remote check-in',
+      'settings.homework': 'Homework sync', 'settings.signin': 'Check-in',
       'settings.sync': 'Import now',
       'settings.needId': 'Save a student ID first',
       'settings.needPassword': 'Enter the SSO password',
@@ -69,8 +88,22 @@ window.__ModuleLoader__.load({
       'settings.done': 'Imported {entries} schedule entries ({created} new, {updated} updated, {cleared} removed), weeks {weeks}, {exams} exams',
       'settings.overwrite': 'Replaces this term’s imported classes and exams.',
       'settings.examFailed': 'Exam list could not be read: {message}',
+      'settings.bykc': 'Boya',
+      'settings.bykcEnabled': 'Sync chosen Boya courses',
+      'settings.bykcHint': 'Reads this semester’s chosen Boya courses on each manual import and writes them as course entries; deselecting removes them on the next import. No running app needed.',
+      'settings.bykcOn': 'Boya course sync is on',
+      'settings.bykcOff': 'Boya course sync is off',
+      'settings.bykcDisabled': 'Off; existing entries are kept. Classes and exams still import.',
+      'settings.bykcTerm': 'Last read semester: {term}',
+      'settings.bykcNever': 'Not read yet.',
+      'settings.bykcLast': 'Last import: {time}',
+      'settings.bykcTimeNever': 'not yet',
+      'settings.bykcDone': 'Boya courses: {total} entries ({created} new, {updated} updated, {cleared} removed)',
+      'settings.bykcSkippedCount': ', {count} skipped for unusable times',
+      'settings.bykcFailed': 'Boya course sync failed: {message}',
+      'settings.bykcSkipped': 'Boya sync skipped (settings changed)',
       'settings.spocEnabled': 'Also sync unsubmitted SPOC homework',
-      'settings.spocHint': 'Syncs every 30 minutes while the app is running and connected; matching manual tasks also get updated due dates.',
+      'settings.spocHint': 'Syncs automatically (about every 30 minutes) while the app runs; matching manual tasks also get updated due dates.',
       'settings.spocOn': 'SPOC homework sync is on',
       'settings.spocOff': 'SPOC homework sync is off',
       'settings.spocDisabled': 'Off; existing tasks are kept. Classes and exams still import.',
@@ -83,8 +116,8 @@ window.__ModuleLoader__.load({
       'settings.spocSkipped': 'SPOC sync skipped (settings or session changed)',
       'settings.signinSession': 'Ready · {user}; check in on today’s BUAA course entries.',
       'settings.signinNoSession': 'Import to check in on today’s BUAA course entries. Import again after restarting the app.',
-      'settings.signinFailed': 'Remote check-in session could not be established: {message}',
-      'settings.signinDone': 'Remote check-in is ready on today\'s BUAA course entries',
+      'settings.signinFailed': 'Check-in session could not be established: {message}',
+      'settings.signinDone': 'Check-in is ready on today\'s BUAA course entries',
     }
 
     // The core kernel's cross-surface pulse (client.core.js owns the
@@ -146,6 +179,18 @@ window.__ModuleLoader__.load({
         }
       }
 
+      const toggleBykc = async enabled => {
+        setBusy(true)
+        try {
+          setState(await api.setBykcEnabled(enabled))
+          setStatus({ ok: true, text: enabled ? t('settings.bykcOn') : t('settings.bykcOff') })
+        } catch (cause) {
+          setStatus({ ok: false, text: cause.message })
+        } finally {
+          setBusy(false)
+        }
+      }
+
       const toggleSpoc = async enabled => {
         setBusy(true)
         try {
@@ -157,6 +202,12 @@ window.__ModuleLoader__.load({
           setBusy(false)
         }
       }
+
+      const bykcHint = state?.bykcEnabled === false
+        ? t('settings.bykcDisabled')
+        : state?.bykcTerm
+          ? t('settings.bykcTerm').replace('{term}', state.bykcTerm)
+          : t('settings.bykcNever')
 
       const spocSession = state?.spocSession
       const spocHint = state?.spocEnabled === false
@@ -197,17 +248,33 @@ window.__ModuleLoader__.load({
         h('div', { className: 'bsch-setting-row' },
           h('span', { className: 'bsch-setting-label' }, t('settings.homework')),
           h('div', { className: 'bsch-setting-control' },
-            h('label', { className: 'bsch-setting-toggle' },
-              h('input', {
-                className: 'bsch-check', type: 'checkbox', checked: state?.spocEnabled !== false, disabled: busy,
-                onChange: e => void toggleSpoc(e.target.checked),
-              }), h('span', null, t('settings.spocEnabled'))),
-            state?.spocEnabled === false ? null : h('div', { className: 'bsch-hint' }, t('settings.spocHint')),
+            h('div', { className: 'bsch-settings-inline' },
+              h('label', { className: 'bsch-setting-toggle' },
+                h('input', {
+                  className: 'bsch-check', type: 'checkbox', checked: state?.spocEnabled !== false, disabled: busy,
+                  onChange: e => void toggleSpoc(e.target.checked),
+                }), h('span', null, t('settings.spocEnabled'))),
+              h(HelpTip, { text: state?.spocEnabled === false ? null : t('settings.spocHint') })),
             h('div', { className: 'bsch-hint' }, spocHint),
             state?.spocEnabled === false ? null : h('div', { className: 'bsch-hint' },
               t('settings.spocLast').replace('{time}', state?.spocLastSyncAt ? formatTime(state.spocLastSyncAt) : t('settings.spocNever'))),
             state?.spocError ? h('div', { className: 'bsch-hint bsch-error', role: 'alert' },
               t('settings.spocFailed').replace('{message}', state.spocError)) : null)),
+        h('div', { className: 'bsch-setting-row' },
+          h('span', { className: 'bsch-setting-label' }, t('settings.bykc')),
+          h('div', { className: 'bsch-setting-control' },
+            h('div', { className: 'bsch-settings-inline' },
+              h('label', { className: 'bsch-setting-toggle' },
+                h('input', {
+                  className: 'bsch-check', type: 'checkbox', checked: state?.bykcEnabled !== false, disabled: busy,
+                  onChange: e => void toggleBykc(e.target.checked),
+                }), h('span', null, t('settings.bykcEnabled'))),
+              h(HelpTip, { text: state?.bykcEnabled === false ? null : t('settings.bykcHint') })),
+            h('div', { className: 'bsch-hint' }, bykcHint),
+            state?.bykcEnabled === false ? null : h('div', { className: 'bsch-hint' },
+              t('settings.bykcLast').replace('{time}', state?.bykcLastSyncAt ? formatTime(state.bykcLastSyncAt) : t('settings.bykcTimeNever'))),
+            state?.bykcError ? h('div', { className: 'bsch-hint bsch-error', role: 'alert' },
+              t('settings.bykcFailed').replace('{message}', state.bykcError)) : null)),
         h('div', { className: 'bsch-setting-row' },
           h('span', { className: 'bsch-setting-label' }, t('settings.signin')),
           h('div', { className: 'bsch-setting-control bsch-setting-value' },
@@ -238,6 +305,19 @@ window.__ModuleLoader__.load({
         .replace('{weeks}', summary.weeksCovered.join('、'))
         .replace('{exams}', String(summary.exams.total))
         + (summary.exams.failed ? `；${t('settings.examFailed').replace('{message}', summary.exams.failed)}` : '')
+      if (summary.bykc !== undefined) {
+        text += typeof summary.bykc.skipped === 'string'
+          ? `；${t('settings.bykcSkipped')}`
+          : summary.bykc.failed
+            ? `；${t('settings.bykcFailed').replace('{message}', summary.bykc.failed)}`
+            : `；${t('settings.bykcDone')
+              .replace('{total}', String(summary.bykc.total))
+              .replace('{created}', String(summary.bykc.created))
+              .replace('{updated}', String(summary.bykc.updated))
+              .replace('{cleared}', String(summary.bykc.cleared))}`
+              + (summary.bykc.skipped > 0
+                ? t('settings.bykcSkippedCount').replace('{count}', String(summary.bykc.skipped)) : '')
+      }
       if (summary.spoc !== undefined) {
         text += typeof summary.spoc.skipped === 'string'
           ? `；${t('settings.spocSkipped')}`

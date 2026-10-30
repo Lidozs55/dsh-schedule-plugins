@@ -37,8 +37,7 @@ function operations(service) {
       // The refresh runs in the shared worker queue and is observed through
       // the `refreshing` flag; the HTTP call returns immediately instead of
       // holding the connection for a full service round-trip.
-      if (body.game === undefined) void service.requestRefresh()
-      else void service.requestRefresh([body.game])
+      void service.requestRefresh(body.game === undefined ? undefined : [body.game])
       return service.getPublicState()
     },
   }

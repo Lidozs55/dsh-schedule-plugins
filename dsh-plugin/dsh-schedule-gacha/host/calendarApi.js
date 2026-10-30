@@ -7,9 +7,9 @@
  * `globalThis.__GACHA_CALENDAR__ = { baseUrl, token }` (optional) so hosts
  * and tests can point the plugin at another deployment.
  */
+import { fetchJson } from './http.js'
 
 const DEFAULT_BASE_URL = 'https://gacha.modenc.top'
-const REQUEST_TIMEOUT_MS = 20_000
 
 export class CalendarApiError extends Error {
   constructor(code, message, status) {
@@ -31,41 +31,28 @@ const config = () => {
 
 async function request(path, { method = 'GET', body, signal } = {}) {
   const { baseUrl, token } = config()
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
-  const onAbort = () => controller.abort()
-  signal?.addEventListener('abort', onAbort, { once: true })
-  try {
-    const response = await fetch(baseUrl + path, {
-      method,
-      signal: controller.signal,
-      headers: {
-        Accept: 'application/json',
-        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
-        ...(method === 'GET' || token === '' ? {} : { Authorization: `Bearer ${token}` }),
-      },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    })
-    if (!response.ok) {
-      let message = `HTTP ${response.status}`
-      try {
-        const parsed = await response.json()
-        if (parsed?.error?.message) message = parsed.error.message
-      } catch { /* keep status text */ }
-      throw new CalendarApiError(`http_${response.status}`, message, response.status)
-    }
-    return await response.json()
-  } catch (error) {
-    if (error instanceof CalendarApiError) throw error
-    if (error?.name === 'AbortError') {
-      const code = signal?.aborted ? 'aborted' : 'timeout'
-      throw new CalendarApiError(code, code === 'aborted' ? '已取消' : '请求超时')
-    }
-    throw new CalendarApiError('network', error.message ?? String(error))
-  } finally {
-    clearTimeout(timer)
-    signal?.removeEventListener('abort', onAbort)
-  }
+  return fetchJson(baseUrl + path, {
+    method,
+    body,
+    signal,
+    headers: {
+      Accept: 'application/json',
+      ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+      ...(method === 'GET' || token === '' ? {} : { Authorization: `Bearer ${token}` }),
+    },
+    wrap: (code, message) => new CalendarApiError(code, message),
+    interpret: async response => {
+      if (!response.ok) {
+        let message = `HTTP ${response.status}`
+        try {
+          const parsed = await response.json()
+          if (parsed?.error?.message) message = parsed.error.message
+        } catch { /* keep status text */ }
+        throw new CalendarApiError(`http_${response.status}`, message, response.status)
+      }
+      return await response.json()
+    },
+  })
 }
 
 export function createCalendarApi() {

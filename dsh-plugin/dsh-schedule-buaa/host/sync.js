@@ -1,12 +1,13 @@
 /** Import the whole BUAA term as one source-owned snapshot of ordinary entries. */
 import { BuaaError, fetchExams, fetchSchedule, ssoLogin } from './jw.js'
+import { parseChosenCourses } from './bykc.js'
 import { examKey, parseTimetable, parseExams, studentIdOf } from './parse.js'
 import { syncSpocTasks } from './spoc-sync.js'
 import { termCodeFor, termLabel } from './time.js'
-import { SOURCE_ID } from './state.js'
+import { BYKC_SOURCE_ID, SOURCE_ID } from './state.js'
 
 /**
- * @param {object} deps - `{ service, jw?, spoc?, signin? }`.
+ * @param {object} deps - `{ service, jw?, bykc?, spoc?, signin? }`.
  * @param {object} creds - `{ buaaId?, password, termStart? }`. `password` is
  *   the SSO password for this call only — never stored. `termStart`
  *   (`YYYY-MM-DD`, Monday of week 1) lets an agent import without visiting
@@ -14,7 +15,7 @@ import { SOURCE_ID } from './state.js'
  * @returns {object} summary for the tool and the settings card.
  */
 export async function runSync(
-  { service, jw = { ssoLogin, fetchSchedule, fetchExams }, spoc = null, signin = null, isActive = () => true },
+  { service, jw = { ssoLogin, fetchSchedule, fetchExams }, bykc = null, spoc = null, signin = null, isActive = () => true },
   creds,
 ) {
   const assertActive = () => {
@@ -84,6 +85,16 @@ export async function runSync(
     entries, teaching: timetable.entries.length, exams,
   }
 
+  // BYKC is a third application behind the same CAS, with its own entry
+  // snapshot under a SEPARATE source id: a BYKC failure (or opt-out) must
+  // never delete the timetable above, and the timetable snapshot must never
+  // delete BYKC entries it knows nothing about. Like SPOC and iclass, this
+  // only ever degrades to a warning.
+  assertActive()
+  if (bykc !== null && state.bykcEnabled !== false) {
+    summary.bykc = await syncBykcEntries({ service, bykc, jar, username: account, password })
+  }
+
   // SPOC is a second application behind the same CAS, not part of the JW
   // snapshot. It runs after the timetable is safely written and never fails
   // the JW import: an unreachable or changed SPOC only degrades the homework
@@ -108,28 +119,59 @@ export async function runSync(
   return summary
 }
 
-async function saveSpocState(service, patch) {
+async function saveAdapterState(service, patch) {
   const state = service.getSourceState(SOURCE_ID)
   await service.setSourceState(SOURCE_ID, { ...state, ...patch })
 }
 
-async function recordSpocFailure(service, error) {
+async function recordAdapterFailure(service, error, channel = 'spoc') {
   try {
-    await saveSpocState(service, { spocError: error.message ?? String(error) })
+    await saveAdapterState(service, { [`${channel}Error`]: error.message ?? String(error) })
   } catch {
     // The task writes already succeeded or failed on their own; losing the
     // diagnostic must not turn a JW import into a failed import.
   }
 }
 
+/**
+ * Import the current semester's chosen BYKC (博雅) courses as one snapshot
+ * of ordinary course entries — each course is one lecture-style block with
+ * absolute dates, so no term anchor is involved. A deselected course simply
+ * disappears from the next snapshot; a failed read keeps the entries that
+ * are already on the calendar.
+ */
+async function syncBykcEntries({ service, bykc, jar, username, password }) {
+  const staleReason = () => {
+    const state = service.getSourceState(SOURCE_ID)
+    if (state.bykcEnabled === false) return 'disabled'
+    return null
+  }
+  try {
+    const feed = await bykc.fetchChosenCourses({ jar, username, password })
+    if (staleReason() !== null) return { skipped: staleReason() }
+    const { entries, skipped } = parseChosenCourses(feed.courses)
+    const result = await service.replaceSourceEntries(BYKC_SOURCE_ID, entries)
+    await saveAdapterState(service, {
+      bykcTerm: feed.term,
+      bykcLastSyncAt: new Date().toISOString(),
+      bykcError: '',
+    })
+    return { ...result, skipped, term: feed.term }
+  } catch (error) {
+    if (staleReason() !== null) return { skipped: staleReason() }
+    await recordAdapterFailure(service, error, 'bykc')
+    return { failed: error.message ?? String(error), code: error.code ?? 'error' }
+  }
+}
+
 async function syncSigninSession({ service, signin, jar, username, password }) {
   try {
     await signin.acquireSession({ jar, username, password })
-    await saveSpocState(service, { signinError: '' })
+    await saveAdapterState(service, { signinError: '' })
     return { ready: true }
   } catch (error) {
     try {
-      await saveSpocState(service, { signinError: error.message ?? String(error) })
+      await saveAdapterState(service, { signinError: error.message ?? String(error) })
     } catch {
       // Same rule as SPOC: diagnostics must not fail the import.
     }
@@ -149,26 +191,42 @@ async function syncSpocAssignments({ service, spoc, jar, username, password, ter
     const feed = await spoc.fetchAssignments({ jar, username, password })
     const stale = staleReason()
     if (stale !== null) return { skipped: stale }
-    if (String(feed.termCode ?? '').replaceAll('-', '') !== termCodeFor(termStart).replaceAll('-', '')) {
-      throw new BuaaError('term_mismatch', 'SPOC 当前学期与日程学期不一致，保留已有待办')
-    }
-    const summary = await syncSpocTasks({ service }, feed, { termStart })
-    await saveSpocState(service, {
-      spocTermCode: feed.termCode ?? '',
-      spocLastSyncAt: new Date().toISOString(),
-      spocError: '',
-    })
-    return {
-      ...summary,
-      termCode: feed.termCode ?? '',
-      termName: feed.termName ?? null,
-    }
+    return await applySpocFeed(service, feed, termStart)
   } catch (error) {
-    const stale = staleReason()
-    if (stale !== null) return { skipped: stale }
-    await recordSpocFailure(service, error)
-    return { failed: error.message ?? String(error), code: error.code ?? 'error' }
+    return spocFailure(service, error, staleReason)
   }
+}
+
+/**
+ * Landing tail shared by both SPOC entries (manual sync and background poll):
+ * the feed has arrived and is still fresh, so guard the term, reconcile the
+ * tasks, stamp the adapter state and build the receipt fields. Errors
+ * propagate to the caller, whose catch shares the same shape below.
+ */
+async function applySpocFeed(service, feed, termStart) {
+  if (String(feed.termCode ?? '').replaceAll('-', '') !== termCodeFor(termStart).replaceAll('-', '')) {
+    throw new BuaaError('term_mismatch', 'SPOC 当前学期与日程学期不一致，保留已有待办')
+  }
+  const summary = await syncSpocTasks({ service }, feed, { termStart })
+  await saveAdapterState(service, {
+    spocTermCode: feed.termCode ?? '',
+    spocLastSyncAt: new Date().toISOString(),
+    spocError: '',
+  })
+  return {
+    ...summary,
+    termCode: feed.termCode ?? '',
+    termName: feed.termName ?? null,
+  }
+}
+
+/** Shared failure tail: staleness observed mid-flight wins over any error;
+ * anything else is recorded for the settings card and degrades to a warning. */
+async function spocFailure(service, error, staleReason) {
+  const stale = staleReason()
+  if (stale !== null) return { skipped: stale }
+  await recordAdapterFailure(service, error)
+  return { failed: error.message ?? String(error), code: error.code ?? 'error' }
 }
 
 /**
@@ -192,9 +250,14 @@ export async function runSpocPoll({ service, spoc = null }) {
   const staleReason = () => {
     const state = service.getSourceState(SOURCE_ID)
     if (state.spocEnabled === false) return 'disabled'
+    // The feed below awaits, and a manual sync may swap the account mid-flight,
+    // so both the stored id and the live session username are re-read and
+    // compared against the username this poll started with.
+    if (username !== undefined && state.buaaId !== username) return 'account_changed'
     const currentUsername = spoc.sessionSnapshot?.()?.username
-    if (username !== undefined && (state.buaaId !== username
-      || (currentUsername !== undefined && currentUsername !== username))) return 'account_changed'
+    if (username !== undefined && currentUsername !== undefined && currentUsername !== username) {
+      return 'account_changed'
+    }
     if (service.getMeta().termStart !== termStart) return 'term_changed'
     return null
   }
@@ -205,25 +268,9 @@ export async function runSpocPoll({ service, spoc = null }) {
     const feed = await spoc.refreshAssignments()
     const stale = staleReason()
     if (stale !== null) return { skipped: stale }
-    if (String(feed.termCode ?? '').replaceAll('-', '') !== termCodeFor(termStart).replaceAll('-', '')) {
-      throw new BuaaError('term_mismatch', 'SPOC 当前学期与日程学期不一致，保留已有待办')
-    }
-    const summary = await syncSpocTasks({ service }, feed, { termStart })
-    await saveSpocState(service, {
-      spocTermCode: feed.termCode ?? '',
-      spocLastSyncAt: new Date().toISOString(),
-      spocError: '',
-    })
-    return {
-      ...summary,
-      termCode: feed.termCode ?? '',
-      termName: feed.termName ?? null,
-    }
+    return await applySpocFeed(service, feed, termStart)
   } catch (error) {
-    const stale = staleReason()
-    if (stale !== null) return { skipped: stale }
-    await recordSpocFailure(service, error)
-    return { failed: error.message ?? String(error), code: error.code ?? 'error' }
+    return spocFailure(service, error, staleReason)
   }
 }
 

@@ -1,8 +1,34 @@
 {
   "name": "@buaaer/dsh-schedule-buaa",
-  "version": "0.1.0",
-  "private": true,
+  "version": "0.2.0",
+  "description": "BUAA source adapter for the DSH schedule core: whole-term timetable and exams, SPOC homework tasks, Boya courses and iclass remote sign-in.",
+  "license": "MIT",
+  "author": "Lidozs55",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lidozs55/dsh-schedule-plugins.git",
+    "directory": "dsh-plugin/dsh-schedule-buaa"
+  },
+  "bugs": "https://github.com/Lidozs55/dsh-schedule-plugins/issues",
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "cordis",
+    "schedule",
+    "buaa"
+  ],
   "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "files": [
+    "*.js",
+    "host/",
+    "cordis.patch.yml"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": "./index.js",
     "./client": "./client.js"
@@ -19,5 +45,8 @@
         "@lidozs55/dsh-schedule"
       ]
     }
+  },
+  "peerDependencies": {
+    "@lidozs55/dsh-schedule": "^0.3.0"
   }
 }

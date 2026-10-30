@@ -1,9 +1,34 @@
 {
   "name": "@lidozs55/dsh-schedule-gacha",
-  "version": "0.1.0",
-  "description": "Gacha preview tracker: pulls formatted version and preview-stream plans for six games from the gacha-calendar service and keeps one preview entry per game.",
-  "private": true,
+  "version": "0.2.0",
+  "description": "Gacha preview source for the DSH schedule core: version updates and preview-stream times for six games, written into the main schedule.",
+  "license": "MIT",
+  "author": "Lidozs55",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lidozs55/dsh-schedule-plugins.git",
+    "directory": "dsh-plugin/dsh-schedule-gacha"
+  },
+  "bugs": "https://github.com/Lidozs55/dsh-schedule-plugins/issues",
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "cordis",
+    "gacha",
+    "schedule"
+  ],
   "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "files": [
+    "*.js",
+    "host/",
+    "cordis.patch.yml"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": "./index.js",
     "./client": "./client.js"
@@ -23,5 +48,8 @@
         "@lidozs55/dsh-schedule"
       ]
     }
+  },
+  "peerDependencies": {
+    "@lidozs55/dsh-schedule": "^0.3.0"
   }
 }

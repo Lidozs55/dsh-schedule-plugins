@@ -14,7 +14,11 @@ window.__ModuleLoader__.load({
     return {
       // `remote.session` + `uiWorkspace` back the hand-off into a normal
       // Agent session; `timer` polls while a background refresh is running.
-      inject: ['slots', 'locale', 'remote', 'remote.session', 'uiWorkspace', 'timer'],
+      // `scheduleShared` orders this fiber behind the core's apply: the
+      // settings chunk below sync-requires the core's chunks, which are only
+      // in the module table after the core materialized them — without this
+      // service the two applies race and boot can wedge in `loading`.
+      inject: ['slots', 'locale', 'remote', 'remote.session', 'uiWorkspace', 'timer', 'scheduleShared'],
 
       async apply(ctx) {
         const settings = await require.async('./client.settings.js')

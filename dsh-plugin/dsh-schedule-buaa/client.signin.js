@@ -12,24 +12,42 @@ window.__ModuleLoader__.load({
   id: '@buaaer/dsh-schedule-buaa/client.signin.js',
   factory: (require) => {
     const React = require('react')
-    const { useState } = React
+    const { useState, useEffect, useRef } = React
     const h = React.createElement
     const api = require('@buaaer/dsh-schedule-buaa/client.api.js')
+    // Core-bundle UI (the toast stack for results, the top-layer tip for the
+    // hover hint). The core materializes these chunks inside its apply, so the
+    // sync `require`s below only see them because the entry injects the core's
+    // `scheduleShared` service — cordis holds this bundle's fiber pending
+    // until that apply finished.
+    const { toast } = require('@lidozs55/dsh-schedule/client.notify.js')
+    const { showTip, hideTip } = require('@lidozs55/dsh-schedule/client.core.js')
 
     const zh = {
-      'signin.action': '远程签到',
+      'signin.action': '签到',
       'signin.busy': '签到中…',
-      'signin.hint': '使用手动同步建立的 iclass 会话；仅当天课程可用，结果以学校系统为准。',
+      'signin.hint': '仅当天北航课程可签到，结果以学校系统为准；需先在日程设置中导入一次。',
       'signin.success': '签到成功',
       'signin.failed': '签到失败',
     }
 
     const en = {
-      'signin.action': 'Remote check-in',
+      'signin.action': 'Check in',
       'signin.busy': 'Checking in…',
-      'signin.hint': "Uses the iclass session from the last manual sync; available for today's classes only.",
+      'signin.hint': "Today's BUAA courses only; import once in Schedule settings first. The school system is authoritative.",
       'signin.success': 'Checked in',
       'signin.failed': 'Check-in failed',
+    }
+
+    // Hover intent: ~1 s on the button, immediate on keyboard focus.
+    let tipTimer = null
+    const cancelTip = () => {
+      if (tipTimer !== null) { clearTimeout(tipTimer); tipTimer = null }
+      hideTip()
+    }
+    const armTip = (anchor, text, delay) => {
+      cancelTip()
+      tipTimer = setTimeout(() => showTip(anchor, text), delay)
     }
 
     const dateFormat = new Intl.DateTimeFormat('en-US', {
@@ -55,37 +73,51 @@ window.__ModuleLoader__.load({
     function SigninAction(props) {
       const { t, entry } = props
       const [busy, setBusy] = useState(false)
-      const [status, setStatus] = useState(null)
+      const btnRef = useRef(null)
+
+      // Hover the button for a second to see how check-in works; keyboard
+      // focus shows the same text immediately.
+      useEffect(() => {
+        const el = btnRef.current
+        if (el === null) return undefined
+        const enter = () => armTip(el, t('signin.hint'), 1000)
+        const focus = () => showTip(el, t('signin.hint'))
+        const leave = () => cancelTip()
+        el.addEventListener('pointerenter', enter)
+        el.addEventListener('pointerleave', leave)
+        el.addEventListener('focusin', focus)
+        el.addEventListener('focusout', leave)
+        return () => {
+          el.removeEventListener('pointerenter', enter)
+          el.removeEventListener('pointerleave', leave)
+          el.removeEventListener('focusin', focus)
+          el.removeEventListener('focusout', leave)
+          cancelTip()
+        }
+      }, [t])
 
       if (!canCheckin(entry)) return null
 
       const submit = async () => {
         setBusy(true)
-        setStatus(null)
+        cancelTip()
         try {
           const result = await api.signin(entry.id)
-          setStatus({
-            ok: result?.success !== false,
-            text: result?.message || t(result?.success === false ? 'signin.failed' : 'signin.success'),
-          })
+          const ok = result?.success !== false
+          toast(t(ok ? 'signin.success' : 'signin.failed'), result?.message ?? '', 6000)
         } catch (cause) {
-          setStatus({ ok: false, text: cause.message ?? String(cause) })
+          toast(t('signin.failed'), cause.message ?? String(cause), 6000)
         } finally {
           setBusy(false)
         }
       }
 
-      return h('div', { className: 'bsch-field' },
-        h('div', { className: 'bsch-rowline' },
-          h('button', {
-            className: 'bsch-btn is-primary', type: 'button', disabled: busy,
-            onClick: () => void submit(),
-          }, busy ? t('signin.busy') : t('signin.action')),
-          h('span', { className: 'bsch-hint' }, t('signin.hint'))),
-        status !== null ? h('div', {
-          className: `bsch-hint${status.ok ? '' : ' bsch-error'}`,
-          role: status.ok ? 'status' : 'alert',
-        }, status.text) : null)
+      // Footer-sized control: the core places this button in the entry
+      // editor's action row, between the spacer and 保存.
+      return h('button', {
+        ref: btnRef, className: 'bsch-btn', type: 'button', disabled: busy,
+        onClick: () => void submit(),
+      }, busy ? t('signin.busy') : t('signin.action'))
     }
 
     return { SigninAction, canCheckin, chinaDateKey, zh, en }

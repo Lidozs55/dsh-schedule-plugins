@@ -14,43 +14,33 @@
  * endpoints are the school's, not ours; a failed decode is reported as a
  * data/auth error instead of being guessed around.
  */
-import { BuaaError, request, ssoLoginAt } from './jw.js'
+import { BuaaError, request, ssoLoginAt, walkRedirects } from './jw.js'
+import { createMemorySession } from './session.js'
 
 const MY_CENTER = 'https://iclass.buaa.edu.cn:8346/?type=jumpMyCenter'
 const APP_LOGIN = 'https://iclass.buaa.edu.cn:8347/app/user/login.action'
 const CLASSES = 'https://iclass.buaa.edu.cn:8347/app/course/get_stu_course_sched.action'
 const TIMESTAMP = 'http://iclass.buaa.edu.cn:8081/app/common/get_timestamp.action'
 const SIGN = 'http://iclass.buaa.edu.cn:8081/eschool/app/course/stu_scan_sign.action'
-const REDIRECT_LIMIT = 8
 const REQUEST_TIMEOUT_MS = 12_000
 
 /** A no-cookie jar for the iclass app calls: only `sessionId` matters there. */
 const emptyJar = { header: () => '', store() {} }
 const abort = () => AbortSignal.timeout(REQUEST_TIMEOUT_MS)
 
-/** @type {{ userId: string, sessionId: string, username: string, lastUsedAt: number }|null} */
-let session = null
-let loginPromise = null
-let loginUsername = ''
-// Bumped by clearSession() so an in-flight login cannot resurrect a session
-// that the user just disabled (or that failed and was cleared).
-let sessionEpoch = 0
+/**
+ * The one live iclass session (`userId`/`sessionId`), in this module's memory
+ * only. The shared memory-session machinery in `session.js` owns the
+ * single-flight and epoch rules; the default 'clear' policy below is the
+ * iclass rule that a manual sync always relogs, repairing a session that may
+ * have expired since the last check-in.
+ */
+const memory = createMemorySession(login, { label: 'iclass' })
 
-export const hasSession = () => session !== null
-
-export function clearSession() {
-  sessionEpoch += 1
-  session = null
-}
-
+export const hasSession = memory.hasSession
+export const clearSession = memory.clearSession
 /** Safe public facts for the settings card; never the iclass session id. */
-export function sessionSnapshot() {
-  if (session === null) return null
-  return {
-    username: session.username,
-    lastUsedAt: new Date(session.lastUsedAt).toISOString(),
-  }
-}
+export const sessionSnapshot = memory.sessionSnapshot
 
 /**
  * Pull `loginName` out of the jump URL's query string. Query parsing is done
@@ -91,7 +81,7 @@ export function resolveRedirectUrl(currentUrl, location) {
 }
 
 /** JSON primitives arrive as strings, numbers or booleans depending on the endpoint. */
-export function jsonString(value, key) {
+function jsonString(value, key) {
   if (value === null || typeof value !== 'object') return null
   const raw = value[key]
   if (typeof raw === 'string') return raw
@@ -100,7 +90,7 @@ export function jsonString(value, key) {
 }
 
 /** iclass accepts 0, 200 or the literal `success` as its success status. */
-export function isStatusSuccess(payload) {
+function isStatusSuccess(payload) {
   const status = jsonString(payload, 'STATUS')
   return status === '0' || status === '200' || status?.toLowerCase() === 'success'
 }
@@ -117,7 +107,7 @@ export function parseSigninClasses(payload) {
   }))
 }
 
-export const normalizeCourseName = value => String(value ?? '').replace(/\s+/g, '').trim()
+const normalizeCourseName = value => String(value ?? '').replace(/\s+/g, '').trim()
 
 /**
  * iclass has returned both `HH:mm` and `yyyy-MM-dd HH:mm:ss`; take the wall
@@ -225,30 +215,15 @@ async function readJson(response, operation) {
  * Follow the MyCenter jump until the URL carries `loginName`. With an
  * authenticated SSO jar this is the CAS ticket round-trip; without one it
  * stops at the login page and returns null, which lets the caller retry with a
- * fresh call-scoped password.
+ * fresh call-scoped password. This flavour keeps the iclass jar default
+ * (`emptyJar`) and its own 12 s timeout — it accepts no caller signal.
  * @param {{ jar?: object }} [options]
  * @returns {Promise<string|null>}
  */
 export async function resolveLoginName({ jar = emptyJar } = {}) {
-  let currentUrl = MY_CENTER
-  for (let hop = 0; hop < REDIRECT_LIMIT; hop += 1) {
-    const known = extractLoginName(currentUrl)
-    if (known !== null) return known
-
-    const response = await request(jar, currentUrl, { signal: abort() })
-    const location = response.headers.get('location')
-    if (location !== null) {
-      const nextUrl = resolveRedirectUrl(currentUrl, location)
-      const found = nextUrl === null ? null : extractLoginName(nextUrl)
-      if (found !== null) return found
-    }
-    if (response.status < 300 || response.status >= 400 || location === null) return null
-
-    const next = resolveRedirectUrl(currentUrl, location)
-    if (next === null) return null
-    currentUrl = next
-  }
-  throw new BuaaError('auth', 'iclass 登录重定向次数过多')
+  const { value, exhausted } = await walkRedirects(jar, MY_CENTER, extractLoginName, { signal: abort() })
+  if (exhausted) throw new BuaaError('auth', 'iclass 登录重定向次数过多')
+  return value
 }
 
 async function appLogin(jar, loginName) {
@@ -297,38 +272,12 @@ async function login({ jar, username, password }) {
 /**
  * Manual-sync path: establish the in-memory iclass session. Reuses the JW jar
  * and falls back to one extra CAS login with the same call-scoped password.
+ * The memory session's default 'clear' policy makes every manual sync relog,
+ * repairing a session that may have expired since the last check-in.
  * @param {{ jar?: object, username: string, password: string }} credentials
  */
-export async function acquireSession({ jar, username, password } = {}) {
-  const name = typeof username === 'string' ? username.trim() : ''
-  if (name === '') throw new BuaaError('invalid_input', '缺少学号，无法登录 iclass')
-  if (loginPromise !== null) {
-    if (loginUsername !== name) throw new BuaaError('busy', 'iclass 正在登录另一账号，请稍后重试')
-    return loginPromise
-  }
-  // Manual sync must repair expired sessions even before the next check-in.
-  if (session !== null) clearSession()
-  if (typeof password !== 'string' || password === '') {
-    throw new BuaaError('auth', 'iclass 会话不存在，请先手动同步一次')
-  }
-
-  const epoch = sessionEpoch
-  loginUsername = name
-  loginPromise = login({ jar, username: name, password })
-    .then(next => {
-      if (epoch !== sessionEpoch) throw new BuaaError('cancelled', 'iclass 会话已清除，请重新同步')
-      session = next
-      return next
-    })
-    .catch(error => {
-      if (error instanceof BuaaError) throw error
-      throw new BuaaError('network', 'iclass 登录失败，请稍后重试')
-    })
-    .finally(() => {
-      loginPromise = null
-      loginUsername = ''
-    })
-  return loginPromise
+export function acquireSession(credentials = {}) {
+  return memory.acquire(credentials)
 }
 
 /**
@@ -337,7 +286,7 @@ export async function acquireSession({ jar, username, password } = {}) {
  * @param {{ now?: Date|string|number }} [options]
  */
 export async function fetchTodayClasses({ now = new Date() } = {}) {
-  const active = session
+  const active = memory.activeSession()
   if (active === null) throw new BuaaError('auth', 'iclass 会话不存在，请先手动同步一次')
 
   const url = new URL(CLASSES)
@@ -354,7 +303,7 @@ export async function fetchTodayClasses({ now = new Date() } = {}) {
     throw new BuaaError('network', 'iclass 课表读取失败，请稍后重试')
   }
   if (response.status === 302 || response.status === 401) {
-    if (session === active) clearSession()
+    if (memory.activeSession() === active) clearSession()
     throw new BuaaError('auth', 'iclass 登录状态失效，请先手动同步一次')
   }
   if (response.status !== 200) {
@@ -371,13 +320,13 @@ export async function fetchTodayClasses({ now = new Date() } = {}) {
     && !isStatusSuccess(payload)) {
     const message = jsonString(payload, 'ERRMSG') || 'iclass 课表读取失败'
     if (looksLikeAuthFailure(message)) {
-      if (session === active) clearSession()
+      if (memory.activeSession() === active) clearSession()
       throw new BuaaError('auth', 'iclass 登录状态失效，请先手动同步一次')
     }
     throw new BuaaError('data', 'iclass 课表读取失败')
   }
 
-  if (session !== active) throw new BuaaError('cancelled', 'iclass 会话已变更，请重试')
+  if (memory.activeSession() !== active) throw new BuaaError('cancelled', 'iclass 会话已变更，请重试')
   active.lastUsedAt = Date.now()
   return parseSigninClasses(payload)
 }
@@ -388,9 +337,9 @@ export async function fetchTodayClasses({ now = new Date() } = {}) {
  * usable answer was received.
  * @param {string} courseSchedId - iclass's row `id`, not the JW course code.
  */
-export async function performSignin(courseSchedId, active = session) {
+export async function performSignin(courseSchedId, active = memory.activeSession()) {
   if (active === null) throw new BuaaError('auth', 'iclass 会话不存在，请先手动同步一次')
-  if (session !== active) throw new BuaaError('cancelled', 'iclass 会话已变更，请重试')
+  if (memory.activeSession() !== active) throw new BuaaError('cancelled', 'iclass 会话已变更，请重试')
   if (typeof courseSchedId !== 'string' || courseSchedId.trim() === '') {
     throw new BuaaError('invalid_input', '缺少 iclass 课程 id')
   }
@@ -413,7 +362,7 @@ export async function performSignin(courseSchedId, active = session) {
     throw new BuaaError('data', '获取服务器时间失败')
   }
 
-  if (session !== active) throw new BuaaError('cancelled', 'iclass 会话已变更，请重试')
+  if (memory.activeSession() !== active) throw new BuaaError('cancelled', 'iclass 会话已变更，请重试')
   const url = new URL(SIGN)
   url.searchParams.set('courseSchedId', courseSchedId.trim())
   url.searchParams.set('timestamp', timestamp)
@@ -433,7 +382,7 @@ export async function performSignin(courseSchedId, active = session) {
     throw new BuaaError('network', '签到请求失败，请稍后重试')
   }
   if (response.status === 302 || response.status === 401) {
-    if (session === active) clearSession()
+    if (memory.activeSession() === active) clearSession()
     throw new BuaaError('auth', 'iclass 登录状态失效，请先手动同步一次')
   }
   if (response.status !== 200) {
@@ -446,7 +395,7 @@ export async function performSignin(courseSchedId, active = session) {
   } catch {
     throw new BuaaError('data', '签到响应不是合法 JSON')
   }
-  if (session !== active) throw new BuaaError('cancelled', 'iclass 会话已变更，请重试')
+  if (memory.activeSession() !== active) throw new BuaaError('cancelled', 'iclass 会话已变更，请重试')
   const success = isStatusSuccess(payload) && jsonString(payload.result, 'stuSignStatus') === '1'
   const rawMessage = jsonString(payload, 'ERRMSG')
   if (!success && looksLikeAuthFailure(rawMessage)) {
@@ -479,9 +428,9 @@ export async function signinEntry(entry, { now = new Date() } = {}) {
     throw new BuaaError('invalid_input', '只能签到今天的课程')
   }
 
-  const active = session
+  const active = memory.activeSession()
   const classes = await fetchTodayClasses({ now })
-  if (session !== active) throw new BuaaError('cancelled', 'iclass 会话已变更，请重试')
+  if (memory.activeSession() !== active) throw new BuaaError('cancelled', 'iclass 会话已变更，请重试')
   const matched = matchClassForEntry(classes, entry)
   if (matched === null) {
     throw new BuaaError('not_found', '今天的 iclass 课表中没有找到这节课（可能尚未同步或已调课）')

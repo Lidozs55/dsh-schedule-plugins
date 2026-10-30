@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { createGachaService, planFromApi, toCstIso } from '../host/service.js'
+import { createGachaService, patchPreservingUserEdits, planFromApi, toCstIso } from '../host/service.js'
 import { GAME_IDS } from '../host/games.js'
 
 // Service-shaped prediction: UTC RFC3339 in, +08:00 plans out. The mapped
@@ -118,6 +118,55 @@ function harness({
 }
 
 const old = (kind, id = kind) => ({ id, title: kind, description: `[gacha:hsr][kind:${kind}]`, start: '2099-10-30T19:30:00+08:00', end: '2099-10-30T21:00:00+08:00', category: 'other' })
+
+const synced = {
+  title: '崩坏：星穹铁道 4.7 版本前瞻直播', description: '旧描述', location: null, category: 'other',
+  allDay: false, start: '2099-10-30T19:30:00+08:00', end: '2099-10-30T21:00:00+08:00',
+}
+
+test('patchPreservingUserEdits keeps user-edited fields and updates untouched ones', () => {
+  const target = { ...synced, title: '一起看直播' }
+  const desired = { ...synced, title: '崩坏：星穹铁道 4.8 版本前瞻直播', description: '新描述', lock: false }
+  const { patch, changed } = patchPreservingUserEdits(target, desired, synced, false)
+  assert.equal(patch.title, '一起看直播')
+  assert.equal(patch.description, '新描述')
+  assert.equal(changed, true)
+})
+
+test('patchPreservingUserEdits skips time keys while the desired entry is locked', () => {
+  const target = { ...synced, start: '2099-10-31T20:00:00+08:00', end: '2099-10-31T22:00:00+08:00' }
+  const desired = {
+    ...synced, start: '2099-11-01T19:00:00+08:00', end: '2099-11-01T21:00:00+08:00', lock: true,
+  }
+  const { patch } = patchPreservingUserEdits(target, desired, synced, true)
+  assert.equal(patch.start, '2099-11-01T19:00:00+08:00')
+  assert.equal(patch.end, '2099-11-01T21:00:00+08:00')
+})
+
+test('patchPreservingUserEdits keeps old values without a baseline unless the entry is locked', () => {
+  const target = {
+    ...synced, title: '旧标题', allDay: undefined, start: 's', end: 'e', lock: false,
+  }
+  const desired = { ...synced, location: '宿舍', category: 'meeting', start: 's2', end: 'e2', lock: false }
+  const { patch } = patchPreservingUserEdits(target, desired, null, false)
+  // One-time migration semantics: with no baseline every old value is kept.
+  assert.equal(patch.title, '旧标题')
+  assert.equal(patch.location, null)
+  assert.equal(patch.category, 'other')
+  assert.equal(patch.start, 's')
+  assert.equal(patch.end, 'e')
+  assert.equal(patch.allDay, false)
+})
+
+test('patchPreservingUserEdits reports no change when the target already matches the desired entry', () => {
+  const desired = {
+    ...synced, lock: false, source: 'gacha', sourceKey: 'hsr:preview',
+  }
+  const target = { id: 'p1', ...desired }
+  const { patch, changed } = patchPreservingUserEdits(target, desired, desired, false)
+  assert.deepEqual(patch, desired)
+  assert.equal(changed, false)
+})
 
 test('toCstIso converts UTC service times to explicit +08:00 strings', () => {
   assert.equal(toCstIso('2099-11-10T22:00:00Z'), '2099-11-11T06:00:00+08:00')

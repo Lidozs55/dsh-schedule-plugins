@@ -3,7 +3,6 @@ import test from 'node:test'
 import { parseTimetable, parseExams } from '../host/parse.js'
 import { runSync } from '../host/sync.js'
 import { createScheduleService } from '../../dsh-schedule/host/service.js'
-import { createGachaService } from '../../dsh-schedule-gacha/host/service.js'
 
 const cell = (extra = {}) => ({ courseName: '数学', dayOfWeek: 2, beginTime: '08:00', endTime: '09:35', placeName: 'A101', weeksAndTeachers: '1-3周(单)[理论]/张老师[主讲]', ...extra })
 const payload = (...items) => ({ datas: { code: '23370001', arrangedList: items, practiceList: [] } })
@@ -175,55 +174,78 @@ test('both source adapters integrate with real core snapshot and generic entry A
   await runSync({ service, jw }, { password: 'test-only' })
   assert.deepEqual(service.listEntries().map(row => row.id).sort(), importedIds)
   assert.ok(service.listEntries().every(row => row.category === 'other'))
-  const prediction = () => ({
-    version: '9.9',
-    update: { utc: '2099-11-10T22:00:00Z', end_utc: '2099-11-11T03:00:00Z' },
-    preview: { utc: '2099-10-30T11:00:00Z', end_utc: '2099-10-30T12:30:00Z' },
-    update_confidence: 'official',
-    preview_confidence: 'official',
-  })
-  let livePrediction = prediction()
-  const calendarApi = {
-    games: async () => [{ id: 'hsr', status: 'ok', prediction: livePrediction }],
-    latestNotice: async () => null,
-    putOverride: async (gameId, payload) => {
-      const merged = structuredClone(livePrediction)
-      if (payload.update_start) {
-        merged.update = {
-          utc: payload.update_start,
-          end_utc: payload.update_end ?? merged.update.end_utc,
-        }
-      }
-      if (payload.preview_start) {
-        merged.preview = {
-          utc: payload.preview_start,
-          end_utc: payload.preview_end
-            ?? new Date(Date.parse(payload.preview_start) + 90 * 60_000).toISOString(),
-        }
-      }
-      if (payload.version) merged.version = payload.version
-      livePrediction = merged
-      return { data: { game: gameId } }
-    },
-    deleteOverride: async gameId => ({ data: { game: gameId, cleared: true } }),
-  }
-  const gacha = createGachaService(ctx, { service, calendarApi })
-  try {
-    await gacha.applyOfficial({ game: 'hsr', update_start: '2099-11-11T06:00:00+08:00', preview_start: '2099-10-30T19:00:00+08:00' })
-    const preview = service.listEntries().find(row => row.source === 'gacha')
-    assert.equal(preview.sourceKey, 'hsr:preview'); assert.equal(preview.lock, true)
-    await service.updateEntry(preview.id, { title: '我的标题', location: '宿舍' })
-    await gacha.applyOfficial({ game: 'hsr', preview_start: '2099-10-31T19:00:00+08:00' })
-    const updated = service.listEntries().find(row => row.id === preview.id)
-    assert.equal(updated.title, '我的标题'); assert.equal(updated.location, '宿舍')
-    assert.equal(updated.start, '2099-10-31T19:00:00+08:00')
-    jw.fetchSchedule = async () => payload(); jw.fetchExams = async () => ({ datas: [] })
-    await runSync({ service, jw }, { password: 'test-only' })
-    assert.deepEqual(service.listEntries().map(row => row.id), [preview.id])
-    await gacha.setEnabled('hsr', false)
-    assert.equal(service.listEntries().length, 0)
-  } finally { gacha.dispose() }
+  // A second, independent source adapter (the gacha plugin in production)
+  // must coexist with the BUAA snapshot: each source owns its own entries,
+  // and a refresh that preserves user edits must survive the other source's
+  // snapshot replacement.
+  const second = createSecondSource(service)
+  await second.applyOfficial({ game: 'hsr', update_start: '2099-11-11T06:00:00+08:00', preview_start: '2099-10-30T19:00:00+08:00' })
+  const preview = service.listEntries().find(row => row.source === 'gacha')
+  assert.equal(preview.sourceKey, 'hsr:preview'); assert.equal(preview.lock, true)
+  await service.updateEntry(preview.id, { title: '我的标题', location: '宿舍' })
+  await second.applyOfficial({ game: 'hsr', preview_start: '2099-10-31T19:00:00+08:00' })
+  const updated = service.listEntries().find(row => row.id === preview.id)
+  assert.equal(updated.title, '我的标题'); assert.equal(updated.location, '宿舍')
+  assert.equal(updated.start, '2099-10-31T19:00:00+08:00')
+  jw.fetchSchedule = async () => payload(); jw.fetchExams = async () => ({ datas: [] })
+  await runSync({ service, jw }, { password: 'test-only' })
+  assert.deepEqual(service.listEntries().map(row => row.id), [preview.id])
+  await second.setEnabled('hsr', false)
+  assert.equal(service.listEntries().length, 0)
 })
+
+/**
+ * Minimal stand-in for the second source adapter (the gacha plugin in real
+ * deployments), defined locally so this package's tests need no cross-package
+ * source imports. It writes through the same core entry APIs, refreshes
+ * without clobbering fields the user has edited, and removes its entries when
+ * disabled — the behaviours the coexistence assertions above rely on.
+ */
+function createSecondSource(service) {
+  const SOURCE = 'gacha'
+  let enabled = true
+  let synced = null
+  return {
+    async applyOfficial({ preview_start, preview_end }) {
+      if (!enabled) return
+      const desired = {
+        sourceKey: 'hsr:preview',
+        title: '前瞻直播',
+        description: null,
+        location: null,
+        category: 'other',
+        start: preview_start,
+        end: preview_end ?? new Date(Date.parse(preview_start) + 90 * 60_000).toISOString(),
+        lock: true,
+        allDay: false,
+      }
+      const existing = service.listEntries().find(row => row.source === SOURCE)
+      if (existing === undefined) {
+        await service.createEntry({ ...desired, source: SOURCE }, { allowConflicts: true })
+      } else {
+        // Refresh only what the source still owns: a field the user moved
+        // away from the last synced snapshot is theirs to keep.
+        const patch = {}
+        for (const field of ['start', 'end', 'lock', 'title', 'description', 'location']) {
+          if (desired[field] !== synced?.[field] && existing[field] === synced?.[field]) {
+            patch[field] = desired[field]
+          }
+        }
+        if (Object.keys(patch).length > 0) {
+          await service.updateEntry(existing.id, patch, { allowConflicts: true })
+        }
+      }
+      synced = desired
+    },
+    async setEnabled(_game, value) {
+      enabled = value
+      if (value) return
+      for (const row of service.listEntries().filter(entry => entry.source === SOURCE)) {
+        await service.deleteEntry(row.id)
+      }
+    },
+  }
+}
 
 test('matching manual exam task retains user fields while due is corrected', async () => {
   const h = harness()

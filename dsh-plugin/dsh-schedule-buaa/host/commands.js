@@ -4,27 +4,27 @@
  * A source plugin contributes only its own namespace, help and handler. The
  * core registry supplies parsing, validation, discovery and transport.
  */
+/**
+ * Receipt-level rules only: the long mechanism documentation (snapshot
+ * semantics, categories, session handling) lives in the guide below.
+ */
 const OUTPUT_NOTES = [
-  '导入是整学期快照：课表自带的周次就是最终周次；重复导入会替换此前由本来源写入的教学与考试日程，未排课的空缺不外推。',
-  '生成锁定的 course/exam 条目，并保留考试待办；课程用当前 course 类别、考试用 exam，类别已删除时归 other。',
-  'SPOC 未提交作业对账为 homework 待办（按「课程 + 作业名」匹配），已提交的作业不生成待办；SPOC 失败只作为警告，不影响课表与考试。',
-  'SPOC 会话只在宿主进程内存中，重启后需再手动同步一次；关闭设置里的 SPOC 开关会清除该会话。',
-  '同一次同步建立 iclass 内存签到会话，当天北航课程条目的「远程签到」按钮可使用；建立失败只警告，不影响教务导入。',
-  '密码只用于当次调用，不落盘、不写日志；不要把它放进普通命令行参数。',
+  '密码仅当次调用，不落盘、不写日志；不要把它放进普通命令行参数。',
+  'SPOC 与博雅读取失败只作为警告（回执 spoc.failed / bykc.failed），不影响课表与考试导入。',
   '以本命令的统计回执为准，不要手工补建同批条目，也不要读取内部文件校验。',
 ]
 
 export function registerBuaaCommands(registry, deps) {
   const dispose = registry.register({
     name: 'buaa',
-    summary: '北航教务整学期课表、考试与 SPOC 作业导入',
-    description: '从北航统一认证与教务端点一次拉取整学期课表、考试，并通过同一次登录读取 SPOC 未提交作业，写入核心日程。仅在启用北航来源插件时可用。',
+    summary: '北航教务整学期课表、考试、博雅课程与 SPOC 作业导入',
+    description: '从北航统一认证与教务端点一次拉取整学期课表、考试，并通过同一次登录读取博雅已选课程与 SPOC 未提交作业，写入核心日程。仅在启用北航来源插件时可用。',
     usage: 'schedule buaa <sync> [选项]',
     commands: [
       {
         name: 'sync',
-        summary: '导入整学期课表、考试与 SPOC 作业',
-        description: '一次登录 + 两个教务请求 + SPOC 作业分页；课表按教务自带周次写成带日期的课程条目，考试同时保留为条目和待办，未提交作业生成 homework 待办。',
+        summary: '导入整学期课表、考试、博雅课程与 SPOC 作业',
+        description: '一次登录 + 两个教务请求 + 博雅已选课程 + SPOC 作业分页；课表按教务自带周次写成带日期的课程条目，考试同时保留为条目和待办，博雅课程是带绝对时间的单场条目，未提交作业生成 homework 待办。',
         timeoutMs: 180_000,
         options: {
           'buaa-id': {
@@ -73,10 +73,11 @@ export function registerBuaaCommands(registry, deps) {
       '行为：',
       '- 一次请求拿整学期课表；每个格子自带星期、时间和周次，按真实周次生成带日期的条目。',
       '- 重复导入是整学期快照：稳定来源键保留条目 id，缺席条目只从本来源删除；未排课的空缺不会被外推。',
+      '- 同一次登录还读取博雅已选课程：每门课是带绝对时间的单场课程条目（含板块与主讲，来源 buaa-bykc）；退选的课程在下次导入时移除，设置卡可整体关闭。',
       '- 同一次登录会读取 SPOC 当前学期作业；未提交作业写成 `homework` 待办，身份键是「课程 + 作业名」，截止时间变化会更新 `due`。已提交作业不生成待办。',
       '- SPOC 作业的删除只限本源、当前学期；分页不完整或 SPOC 当前学期与导入学期不一致时不对账，保留已有待办。',
-      '- SPOC 会话仅存内存，宿主重启后需再同步一次，设置卡开关关闭时立即清除会话。',
-      '- 同步还会建立 iclass 内存会话；当天北航课程条目的「远程签到」按钮按课程名称和北京时间匹配校方当天排课，已签到直接返回，不重复提交。修改学号或卸载来源插件会清除内存会话。',
+      '- SPOC 会话仅存内存，宿主重启后需再手动同步一次，设置卡开关关闭时立即清除会话。',
+      '- 同步还会建立 iclass 内存会话；当天北航课程条目的「签到」按钮按课程名称和北京时间匹配校方当天排课，已签到直接返回，不重复提交。修改学号或卸载来源插件会清除内存会话。',
       '- 课程使用 `course` 类别、考试使用 `exam`；类别已删除时归 `other`，不会复活已删除类别。',
       '- 课程与考试条目锁定（仅防页面快捷拖动），仍可显式编辑或删除。',
       '- 考试任务按「课程名 + 考试日期」对账；用户手建的同名任务只校正 due，标题/优先级/备注归用户。',
@@ -85,6 +86,7 @@ export function registerBuaaCommands(registry, deps) {
       '失败：',
       '- 认证失败会返回 code=auth；检查学号/密码，不要重试到锁定。',
       '- 考试端点失败时保留原有考试并给出统计中的失败信息；课表部分仍按返回结果处理，如实报告。',
+      '- 博雅失败只在回执的 bykc.failed 中报告，教务课表与考试照常导入；不要把博雅失败当成整次导入失败。',
       '- SPOC 失败（接口变更、断网、角色信息缺失）只在回执的 spoc.failed 中报告，教务课表与考试照常导入；不要把 SPOC 失败当成整次导入失败。',
       '- iclass 登录失败只在 signin.failed 中报告；会话失效时先手动同步，签到按钮不会保存或索要密码。',
       '- 结果未知时先查目标学期窗口，再决定是否重试，避免重复。',

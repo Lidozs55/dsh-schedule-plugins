@@ -37,6 +37,7 @@ window.__ModuleLoader__.load({
     return {
       state: () => globalThis.fetch(API_PATH).then(parseResult),
       setStudentId: buaaId => post('setStudentId', { buaaId }),
+      setBykcEnabled: enabled => post('setBykcEnabled', { enabled }),
       setSpocEnabled: enabled => post('setSpocEnabled', { enabled }),
       sync: creds => post('sync', creds),
       signin: entryId => post('signin', { entryId }),

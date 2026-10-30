@@ -1,24 +1,24 @@
 /**
  * Durable state of the gacha source adapter.
  *
- * The schedule core only guarantees JSON round-tripping under
- * `sourceState[SOURCE_ID]`; every field below is this plugin's own business
- * fact. The schedule entries themselves never live here — this file only
- * remembers which core entry ids belong to which game track, plus the last
- * service plan so a failed refresh can keep the previous dates.
+ * The schedule core only guarantees JSON round-tripping under the adapter's
+ * `sourceState` slot (see SOURCE_ID in games.js); every field below is this
+ * plugin's own business fact. The schedule entries themselves never live
+ * here — this file only remembers which core entry ids belong to which game
+ * track, plus the last service plan so a failed refresh can keep the
+ * previous dates.
  */
 import { GAME_IDS } from './games.js'
 
-export const SOURCE_ID = 'gacha'
+const GAME_STATUSES = ['idle', 'ok', 'partial', 'error', 'disabled']
 
-export const GAME_STATUSES = ['idle', 'ok', 'partial', 'error', 'disabled']
-
-const isObject = value =>
+/** Plain-object check, shared with the service module. */
+export const isObject = value =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
 
 const text = value => (typeof value === 'string' && value.trim() !== '' ? value : null)
 
-export const emptyGameState = () => ({
+const emptyGameState = () => ({
   status: 'idle',
   lastRefreshAt: null,
   lastError: null,

@@ -69,7 +69,7 @@ export function attachBridge(ctx, config) {
       // Fire inside the [at-60s, at+60s] window: one poll may straddle the
       // moment; earlier than that stays silent, later is already gone from
       // the derived set.
-      if (at - now > WATCH_LEAD_MS || now - at > WATCH_LEAD_MS) continue
+      if (Math.abs(at - now) > WATCH_LEAD_MS) continue
       const id = `sched-rem-${reminder.key ?? reminder.taskId}`
       if (raised.has(id)) continue
       const notice = noticeFor(reminder)
@@ -80,12 +80,9 @@ export function attachBridge(ctx, config) {
         ttlMs: NOTICE_TTL_MS,
         source: 'schedule-bridge',
       })
-      if (!posted.ok) {
-        // duplicate-id = this reminder already has a live bubble.
-        if (posted.code === 'duplicate-id') raised.add(id)
-        continue
-      }
-      raised.add(id)
+      // duplicate-id = this reminder already has a live bubble.
+      if (posted.ok || posted.code === 'duplicate-id') raised.add(id)
+      if (!posted.ok) continue
       // The tapped action id settles the promise (`ack` / `complete` / `expired`).
       vivarium.notices.settled(id).then(outcome => {
         if (outcome === 'complete') {
@@ -100,8 +97,7 @@ export function attachBridge(ctx, config) {
   // Facts only (counts + next deadline): pet semantics — the overdue worry
   // edge and the all-clear celebration — are the BASE's to derive (§4c
   // tasks.report). This bridge translates its domain into the base
-  // vocabulary once and remembers nothing (the old prevPending/cleared
-  // tracking was base state memory sunk into the wrong layer).
+  // vocabulary once and remembers nothing.
   const canReportTasks = typeof vivarium.tasks?.report === 'function'
   if (config.statusSignals && !canReportTasks) {
     ctx.logger.warn('schedule-bridge: host vivarium lacks tasks.report (contract §4c) — task status reporting disabled')
@@ -171,7 +167,7 @@ export function attachBridge(ctx, config) {
 
   const stageDrop = drop => {
     const row = dropbox.stage(drop)
-    if (row === null) return
+    if (row == null) return
     let posted
     try {
       posted = vivarium.notices.post({
@@ -399,7 +395,14 @@ export function attachBridge(ctx, config) {
     return dispose
   }, 'schedule-bridge: subscription')
 
-  watchReminders()
-  reportTasks()
+  const safeRun = (fn, label) => {
+    try {
+      fn()
+    } catch (error) {
+      ctx.logger.warn('schedule-bridge: %s failed: %s', label, error.message)
+    }
+  }
+  safeRun(watchReminders, 'reminder watch')
+  safeRun(reportTasks, 'task report')
   ctx.logger.info('schedule-bridge: schedule ⇄ vivarium bridge active')
 }

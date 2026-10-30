@@ -1,8 +1,33 @@
 {
   "name": "@lidozs55/dsh-schedule-bridge",
   "version": "0.1.0",
-  "private": true,
+  "description": "Desktop-pet bridge for the DSH schedule: reminder bubbles, task-status facts and drop-to-pet intake.",
+  "license": "MIT",
+  "author": "Lidozs55",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lidozs55/dsh-schedule-plugins.git",
+    "directory": "dsh-plugin/dsh-schedule-bridge"
+  },
+  "bugs": "https://github.com/Lidozs55/dsh-schedule-plugins/issues",
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "cordis",
+    "schedule",
+    "vivarium"
+  ],
   "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "files": [
+    "*.js",
+    "cordis.patch.yml"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": "./index.js"
   },
@@ -12,6 +37,7 @@
     }
   },
   "peerDependencies": {
-    "@deepseek-ai/schemastery": "^3.18.5"
+    "@deepseek-ai/schemastery": "^3.18.5",
+    "@lidozs55/dsh-schedule": "^0.3.0"
   }
 }

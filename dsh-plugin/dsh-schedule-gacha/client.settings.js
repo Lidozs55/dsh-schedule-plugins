@@ -56,10 +56,16 @@ window.__ModuleLoader__.load({
       window.dispatchEvent(new CustomEvent('schedule:data-changed'))
     }
 
+    // Shared tip/help UI from the core bundle. The core materializes its own
+    // chunks inside its apply, so this sync `require` only sees them because
+    // the entry injects the core's `scheduleShared` service — cordis holds
+    // this bundle's fiber pending until that apply finished.
+    const { HelpTip } = require('@lidozs55/dsh-schedule/client.core.js')
+
     const zh = {
       'settings.title': '二游前瞻',
-      'settings.hint': '数据来自 gacha-calendar，≈ 表示推算。仅前瞻直播加入日程，推算的前瞻时间可调整。',
-      'settings.agentHint': '官方时间校正会提交至数据源服务器。',
+      'settings.hint': '数据来自 gacha-calendar，标 ≈ 的为推算时间。仅前瞻直播加入日程，推算时间可调整。',
+      'settings.agentHint': '「Agent 核对」会新建会话，由 AI 核对各游戏官方时间；官方时间校正会提交至数据源服务器。',
       'settings.disabled': '已关闭，不写入日程',
       'settings.waiting': '等待首次刷新…',
       'settings.unknown': '待定',
@@ -71,23 +77,21 @@ window.__ModuleLoader__.load({
       'settings.agent': 'Agent 核对',
       'settings.last': '上次刷新：{time}',
       'settings.never': '尚未刷新',
-      'settings.auto': '每 6 小时刷新；关闭游戏会移除其前瞻日程。',
+      'settings.auto': '每 6 小时自动刷新；关闭某游戏会移除其前瞻日程。',
       'settings.watchOn': '周检：每周三 10:00（北京时间）',
       'settings.watchOff': '周检未开启',
       'settings.error': '刷新失败：{message}',
       'settings.notice': '公告',
       'settings.agentPrompt': [
-        '请核对这六款二游的官方版本前瞻直播与版本更新时间：原神、崩坏：星穹铁道、绝区零、鸣潮、明日方舟：终末地、异环。',
-        '先用 `schedule gacha list` 查看插件当前状态摘要；摘要不是官方证据。需要公告原文时用 `schedule gacha posts --game <id>` 分页读取服务保存的公告/动态，再用可用检索工具到各游戏 B 站官方账号相互印证。',
-        '发现官方明确时间时，用 `schedule gacha apply-official --game <id> --update-start/--preview-start ...` 按游戏写入带时区的 ISO 8601 时间；只修改插件维护的二游条目，不要动其他日程。',
-        '终末地的版本节奏不固定，请重点核对。无法检索或材料不足时明确说明未核实，不推断无变化。核对完成后，运行 `schedule gacha watch --session {sessionId}` 开启固定每周三 10:00（Asia/Shanghai）的周检。',
+        '请核对六款二游（原神、崩坏：星穹铁道、绝区零、鸣潮、明日方舟：终末地、异环）未来的官方版本前瞻直播与版本更新时间：只核对与写入尚未发生（当前时间之后）的直播与版本更新，已开始或已结束的事件一律忽略。',
+        '先运行 `schedule gacha --help` 了解工具与核对方法：用 `schedule gacha fetch` 读取官方账号公告核对，发现明确的未来时间时用 `schedule gacha apply-official` 按游戏写入。无法检索或材料不足时明确说明未核实，不推断无变化。',
       ].join('\n'),
     }
 
     const en = {
       'settings.title': 'Gacha previews',
-      'settings.hint': 'Data from gacha-calendar; ≈ means estimated. Only preview streams enter the calendar. Estimated preview times are editable.',
-      'settings.agentHint': 'Official-time corrections are submitted to the data source server.',
+      'settings.hint': 'Data from gacha-calendar; ≈ marks estimated times. Only preview streams enter the calendar; estimates are editable.',
+      'settings.agentHint': '“Verify with Agent” opens a session where the AI checks each game’s official times; corrections are submitted to the data source server.',
       'settings.disabled': 'Off — no entries',
       'settings.waiting': 'Waiting for the first refresh…',
       'settings.unknown': 'TBD',
@@ -99,16 +103,14 @@ window.__ModuleLoader__.load({
       'settings.agent': 'Verify with Agent',
       'settings.last': 'Last refresh: {time}',
       'settings.never': 'never',
-      'settings.auto': 'Refreshes every 6 hours. Turning a game off removes its previews.',
+      'settings.auto': 'Refreshes every 6 hours automatically; turning a game off removes its previews.',
       'settings.watchOn': 'Weekly check: Wednesdays 10:00 (UTC+8)',
       'settings.watchOff': 'Weekly check off',
       'settings.error': 'Refresh failed: {message}',
       'settings.notice': 'notice',
       'settings.agentPrompt': [
-        'Verify the official preview stream and version update times for Genshin Impact, Honkai: Star Rail, Zenless Zone Zero, Wuthering Waves, Arknights: Endfield and NTE.',
-        'Start with `schedule gacha list` to read its status summary, not official evidence. When you need the announcement originals, page through `schedule gacha posts --game <id>` and cross-check them against each game’s official Bilibili account.',
-        'When an official time is explicit, write it with `schedule gacha apply-official --game <id> --update-start/--preview-start ...` using an ISO 8601 instant with offset; only touch the gacha entries, never other schedules.',
-        'Endfield’s cadence is irregular — verify it carefully. If search is unavailable or evidence is insufficient, report that verification was not possible, not that nothing changed. Finish by enabling the fixed Wednesday 10:00 (Asia/Shanghai) check with `schedule gacha watch --session {sessionId}`.',
+        'Verify the official preview stream and version update times for six gacha games — Genshin Impact, Honkai: Star Rail, Zenless Zone Zero, Wuthering Waves, Arknights: Endfield and NTE. Only check and write events that have not happened yet (after the current time); ignore anything that already started or ended.',
+        'Run `schedule gacha --help` first for the tools and the verification method: read official announcements with `schedule gacha fetch`, and write confirmed future times with `schedule gacha apply-official`. If search is unavailable or evidence is insufficient, report that verification was not possible, not that nothing changed.',
       ].join('\n'),
     }
 
@@ -207,7 +209,7 @@ window.__ModuleLoader__.load({
             requestId: crypto.randomUUID(),
             sessionId,
             mode: 'queue',
-            content: [{ type: 'text', text: t('settings.agentPrompt').replace('{sessionId}', sessionId) }],
+            content: [{ type: 'text', text: t('settings.agentPrompt') }],
           })
           if (!prompted.ok) throw prompted.error
           env.openSession(sessionId)
@@ -224,8 +226,13 @@ window.__ModuleLoader__.load({
         : short(state.lastRefreshAt)
 
       return h('section', { className: 'bsch-settings-section', 'aria-labelledby': 'bsch-gacha-heading' },
-        h('h3', { className: 'bsch-settings-heading', id: 'bsch-gacha-heading' }, t('settings.title')),
-        h('div', { className: 'bsch-hint' }, t('settings.hint')),
+        h('div', { className: 'bsch-settings-header' },
+          h('div', { className: 'bsch-settings-inline' },
+            h('h3', { className: 'bsch-settings-heading', id: 'bsch-gacha-heading' }, t('settings.title')),
+            h(HelpTip, {
+              text: `${t('settings.hint')} ${t('settings.auto')} ${t('settings.agentHint')}`,
+              label: t('settings.title'),
+            }))),
         h('div', { className: 'bsch-settings-games' }, ...games.map(game => h('div', { className: 'bsch-setting-row', key: game.id },
           h('label', { className: 'bsch-setting-toggle' },
             h('input', {
@@ -240,14 +247,12 @@ window.__ModuleLoader__.load({
               className: 'bsch-settings-link', href: game.article.url, target: '_blank', rel: 'noreferrer',
               'aria-label': `${game.name} · ${t('settings.notice')}`,
             }, t('settings.notice')) : null))))),
-        h('div', { className: 'bsch-hint' }, t('settings.auto')),
         h('div', { className: 'bsch-settings-meta' },
           h('span', null, t('settings.last').replace('{time}', last)),
           h('span', null, state?.watch?.enabled ? t('settings.watchOn') : t('settings.watchOff'))),
-        h('div', { className: 'bsch-hint', id: 'bsch-gacha-agent-hint' }, t('settings.agentHint')),
         h('div', { className: 'bsch-settings-actions' },
           h('button', {
-            className: 'bsch-btn', disabled: busy, 'aria-describedby': 'bsch-gacha-agent-hint', onClick: () => void openAgent(),
+            className: 'bsch-btn', disabled: busy, onClick: () => void openAgent(),
           }, t('settings.agent')),
           h('button', {
             className: 'bsch-btn is-primary', disabled: busy || state?.refreshing === true, onClick: () => void refreshAll(),

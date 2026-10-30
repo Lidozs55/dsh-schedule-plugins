@@ -1,6 +1,9 @@
 /**
  * BUAA SSO login and JW API access over the host's fetch.
  *
+ * Protocol source: the endpoints and the SSO login flow follow UBAA's
+ * `LocalScheduleApi.kt` (BUAASubnet/UBAA, MIT).
+ *
  * Credentials are call-scoped: the password is used for this login only and
  * is never stored. This module keeps no session and no cookie jar of its own —
  * the jar it returns belongs to the caller for that call. The one deliberate
@@ -44,6 +47,56 @@ export class BuaaError extends Error {
     super(message)
     this.code = code
   }
+}
+
+/** Upper bound for one redirect chain; a CAS ticket loop must end far below it. */
+const REDIRECT_LIMIT = 8
+
+/** Resolve a Location header against the URL that produced it; null when unusable. */
+const resolveRedirectUrl = (currentUrl, location) => {
+  try {
+    return new URL(String(location), currentUrl).toString()
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Follow one manual-redirect chain with `jar`, starting at `startUrl`, and
+ * stop as soon as `extract(url)` returns non-null. Extraction runs for the
+ * start URL and for every Location the chain produces — BEFORE that URL is
+ * fetched, so a token carried in a redirect target never costs an extra
+ * request. Only real redirects are followed (3xx with a resolvable Location);
+ * anything else ends the walk.
+ * @param {object} jar - cookie jar updated by every hop.
+ * @param {string} startUrl - first URL to probe.
+ * @param {(url: string) => any} extract - predicate; non-null means done.
+ * @param {{ signal?: AbortSignal }} [options] - forwarded to each request.
+ * @returns {Promise<{ value: any, exhausted: boolean }>} `value` is the first
+ *   non-null extraction (null when the chain simply ended); `exhausted` marks
+ *   a chain longer than `REDIRECT_LIMIT`, which callers that read an endless
+ *   CAS loop as an auth failure turn into their own error.
+ */
+export async function walkRedirects(jar, startUrl, extract, { signal } = {}) {
+  let currentUrl = startUrl
+  for (let hop = 0; hop < REDIRECT_LIMIT; hop += 1) {
+    const fromUrl = extract(currentUrl)
+    if (fromUrl !== null) return { value: fromUrl, exhausted: false }
+
+    const response = await request(jar, currentUrl, { signal })
+    const location = response.headers.get('location')
+    if (location === null) return { value: null, exhausted: false }
+    const nextUrl = resolveRedirectUrl(currentUrl, location)
+    if (nextUrl !== null) {
+      const fromLocation = extract(nextUrl)
+      if (fromLocation !== null) return { value: fromLocation, exhausted: false }
+    }
+    if (nextUrl === null || response.status < 300 || response.status >= 400) {
+      return { value: null, exhausted: false }
+    }
+    currentUrl = nextUrl
+  }
+  return { value: null, exhausted: true }
 }
 
 /** Minimal cookie jar over `Set-Cookie` collection. */
@@ -141,14 +194,14 @@ export async function ssoLoginAt(probeUrl, username, password, signal, options =
     throw new BuaaError('auth', `登录提交失败（HTTP ${login.status}，学号或密码可能错误）`)
   }
 
-  // Follow the callback chain so the service session cookie lands.
-  let hop = login
-  let hopUrl = ssoUrl
-  for (let i = 0; i < 8 && hop.status === 302; i += 1) {
-    const next = hop.headers.get('location')
-    if (!next) break
-    hopUrl = new URL(next, hopUrl).toString()
-    hop = await request(jar, hopUrl, { signal })
+  // Follow the callback chain so the service session cookie lands. The walk
+  // starts at the login reply's first target (already resolved here) and
+  // keeps following 3xx Location hops with the same jar.
+  if (login.status === 302) {
+    const next = login.headers.get('location')
+    if (next) {
+      await walkRedirects(jar, new URL(next, ssoUrl).toString(), () => null, { signal })
+    }
   }
 
   if (options.requireTgc !== false && !jar.has('CASTGC') && !jar.has('_WEU')) {

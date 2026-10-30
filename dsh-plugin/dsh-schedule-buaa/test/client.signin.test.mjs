@@ -31,6 +31,7 @@ const find = (tree, predicate) => nodes(tree).find(predicate)
 /** Load one browser chunk with a fake `react` and a caller-supplied API module. */
 async function harness(api) {
   const modules = new Map([[API_ID, api]])
+  const toastCalls = []
   let cursor = 0
   const slots = []
   const React = {
@@ -40,13 +41,23 @@ async function harness(api) {
       if (!(index in slots)) slots[index] = typeof initial === 'function' ? initial() : initial
       return [slots[index], next => { slots[index] = typeof next === 'function' ? next(slots[index]) : next }]
     },
+    // The action only uses these around the hover tip; the fake render never
+    // attaches listeners (ref.current stays null), so no-ops are enough.
+    useRef: () => ({ current: null }),
+    useEffect: () => {},
   }
   modules.set('react', React)
+  // Core-bundle seams the real bundle injects before this factory runs.
+  modules.set('@lidozs55/dsh-schedule/client.notify.js', {
+    toast: (...args) => toastCalls.push(args),
+  })
+  modules.set('@lidozs55/dsh-schedule/client.core.js', { showTip: () => {}, hideTip: () => {} })
   const window = { __ModuleLoader__: { load: ({ id, factory }) => modules.set(id, factory(id => modules.get(id))) } }
   const context = vm.createContext({ window, console, Date, Intl, setTimeout, clearTimeout })
   vm.runInContext(await readFile(SIGNIN_PATH, 'utf8'), context)
   return {
     module: modules.get('@buaaer/dsh-schedule-buaa/client.signin.js'),
+    toastCalls,
     render(component, props) {
       cursor = 0
       return component(props)
@@ -75,7 +86,7 @@ test('check-in is offered only on today\'s BUAA teaching entries', async () => {
   assert.ok(find(today, node => node.type === 'button'))
 })
 
-test('clicking the action posts the entry id and reports the host result', async () => {
+test('clicking the action posts the entry id and toasts the host result', async () => {
   const calls = []
   const app = await harness({
     signin: async id => {
@@ -95,14 +106,13 @@ test('clicking the action posts the entry id and reports the host result', async
   await new Promise(resolve => setTimeout(resolve, 0))
 
   assert.deepEqual(calls, ['entry-1'])
+  // Results ride the core's global toast stack, not an inline status node.
+  assert.deepEqual(app.toastCalls, [['signin.success', '签到成功', 6000]])
   tree = app.render(SigninAction, props)
-  const status = find(tree, node => node.props.role === 'status')
-  assert.ok(status)
-  assert.equal(status.children[0], '签到成功')
   assert.equal(find(tree, node => node.type === 'button').props.disabled, false)
 })
 
-test('busy state disables the action and failures surface as alerts', async () => {
+test('busy state disables the action and failures surface as toasts', async () => {
   let reject
   const app = await harness({
     signin: () => new Promise((resolve, fail) => { reject = fail }),
@@ -123,8 +133,6 @@ test('busy state disables the action and failures surface as alerts', async () =
   await new Promise(resolve => setTimeout(resolve, 0))
 
   tree = app.render(SigninAction, props)
-  const alert = find(tree, node => node.props.role === 'alert')
-  assert.ok(alert)
-  assert.equal(alert.children[0], 'iclass 课表中没有找到这节课')
+  assert.deepEqual(app.toastCalls, [['signin.failed', 'iclass 课表中没有找到这节课', 6000]])
   assert.equal(find(tree, node => node.type === 'button').props.disabled, false)
 })

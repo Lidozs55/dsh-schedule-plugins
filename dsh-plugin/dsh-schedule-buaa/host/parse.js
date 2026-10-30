@@ -35,7 +35,7 @@ const HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/
  * weeks they cover, because `N-M` alone would wrongly admit the other half.
  * @returns {string|null} null when no week could be read.
  */
-export function normalizeWeeks(spec) {
+function normalizeWeeks(spec) {
   const weeks = new Set()
   for (const match of String(spec).matchAll(WEEK_TOKEN_RE)) {
     const from = Number(match[1])

@@ -34,6 +34,10 @@ const publicState = (service, deps) => {
     termStart,
     termCode,
     termLabel: termCode === '' ? '' : termLabel(termCode),
+    bykcEnabled: state.bykcEnabled !== false,
+    bykcTerm: typeof state.bykcTerm === 'string' ? state.bykcTerm : '',
+    bykcLastSyncAt: typeof state.bykcLastSyncAt === 'string' ? state.bykcLastSyncAt : '',
+    bykcError: typeof state.bykcError === 'string' ? state.bykcError : '',
     spocEnabled: state.spocEnabled !== false,
     spocTermCode: typeof state.spocTermCode === 'string' ? state.spocTermCode : '',
     spocLastSyncAt: typeof state.spocLastSyncAt === 'string' ? state.spocLastSyncAt : '',
@@ -61,6 +65,17 @@ function operations(service, deps) {
         deps.signin?.clearSession?.()
       }
       await service.setSourceState(SOURCE_ID, { ...state, buaaId })
+      return publicState(service, deps)
+    },
+    setBykcEnabled: async body => {
+      if (typeof body.enabled !== 'boolean') {
+        throw Object.assign(new Error('enabled 必须是布尔值'), { code: 'invalid_input' })
+      }
+      await service.setSourceState(SOURCE_ID, {
+        ...service.getSourceState(SOURCE_ID),
+        bykcEnabled: body.enabled,
+        ...(body.enabled ? {} : { bykcError: '' }),
+      })
       return publicState(service, deps)
     },
     setSpocEnabled: async body => {

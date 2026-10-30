@@ -6,6 +6,11 @@
  * exchanges the CAS ticket for an SPOC token, and reads the current term's
  * assignment feed.
  *
+ * Protocol source: UBAA's `LocalSpocSupport.kt` / `LocalSpocApi.kt`
+ * (BUAASubnet/UBAA, MIT) — the CAS token exchange, the AES-128-CBC
+ * query-parameter encryption and the assignment endpoints were ported from
+ * its Kotlin implementation.
+ *
  * The session lives in this module's memory only. Nothing here is persisted:
  * the password and the SPOC bearer token both die with the host process. That
  * is deliberate — the schedule core's credential contract forbids passwords on
@@ -13,7 +18,8 @@
  * synced home directory.
  */
 import { createCipheriv } from 'node:crypto'
-import { BuaaError, request, ssoLoginAt } from './jw.js'
+import { BuaaError, request, ssoLoginAt, walkRedirects } from './jw.js'
+import { createMemorySession } from './session.js'
 
 const SPOC_BASE = 'https://spoc.buaa.edu.cn'
 const CAS_ENTRY = `${SPOC_BASE}/spocnewht/cas`
@@ -36,31 +42,26 @@ const ASSIGNMENTS_PAGE_SQL_ID = '1713252980496efac7d5d9985e81693116d3e8a52ebf2b'
 const PAGE_SIZE = 15
 const MAX_PAGES = 100
 
-/** @type {{ token: string, roleCode: string, jar: object, username: string, termCode: string, termName: string|null, lastUsedAt: number }|null} */
-let session = null
-let loginPromise = null
-let loginUsername = ''
-// Bumped by clearSession() so an in-flight login cannot resurrect a session
-// that the user just disabled (or that failed and was cleared).
-let sessionEpoch = 0
-
-export const hasSession = () => session !== null
-
-export function clearSession() {
-  sessionEpoch += 1
-  session = null
-}
-
-/** Safe public facts for the settings card; never the token itself. */
-export function sessionSnapshot() {
-  if (session === null) return null
-  return {
+/**
+ * The one live SPOC session, in this module's memory only. Login reuses the
+ * JW jar when it carries a usable CAS service ticket for SPOC, and otherwise
+ * performs one fresh password login; the shared memory-session machinery in
+ * `session.js` owns the single-flight and epoch rules.
+ */
+const memory = createMemorySession(login, {
+  label: 'SPOC',
+  snapshotOf: session => ({
     username: session.username,
     termCode: session.termCode,
     termName: session.termName,
     lastUsedAt: new Date(session.lastUsedAt).toISOString(),
-  }
-}
+  }),
+})
+
+export const hasSession = memory.hasSession
+export const clearSession = memory.clearSession
+/** Safe public facts for the settings card; never the token itself. */
+export const sessionSnapshot = memory.sessionSnapshot
 
 /**
  * AES-128-CBC with zero padding, as the SPOC front end does. Node's default
@@ -132,7 +133,7 @@ export function mapSubmissionStatus(rawStatus) {
   return value === '' ? 'unsubmitted' : 'unknown'
 }
 
-export const submissionStatusText = status =>
+const submissionStatusText = status =>
   status === 'submitted' ? '已提交' : status === 'unknown' ? '未知状态' : '未提交'
 
 /** Scores arrive as `95`, `95.0` or `95 分`; keep the number when present. */
@@ -210,21 +211,9 @@ async function readEnvelope(response, operation) {
 }
 
 async function tryLoginTokens(jar) {
-  let currentUrl = CAS_ENTRY
-  for (let hop = 0; hop < 8; hop += 1) {
-    const fromUrl = extractLoginTokens(currentUrl)
-    if (fromUrl !== null) return fromUrl
-
-    const response = await request(jar, currentUrl)
-    const location = response.headers.get('location')
-    if (location === null) return null
-
-    const nextUrl = new URL(location, currentUrl).toString()
-    const fromLocation = extractLoginTokens(nextUrl)
-    if (fromLocation !== null) return fromLocation
-    currentUrl = nextUrl
-  }
-  throw new BuaaError('auth', 'SPOC 登录重定向次数过多')
+  const { value, exhausted } = await walkRedirects(jar, CAS_ENTRY, extractLoginTokens)
+  if (exhausted) throw new BuaaError('auth', 'SPOC 登录重定向次数过多')
+  return value
 }
 
 async function casLogin(jar, tokens) {
@@ -278,35 +267,10 @@ async function login({ jar, username, password }) {
 }
 
 async function ensureSession({ jar, username, password, force = false }) {
-  const name = typeof username === 'string' ? username.trim() : ''
-  if (name === '') throw new BuaaError('invalid_input', '缺少学号，无法登录 SPOC')
-  if (loginPromise !== null) {
-    if (loginUsername !== name) throw new BuaaError('busy', 'SPOC 正在登录另一账号，请稍后重试')
-    return loginPromise
-  }
-  if (session !== null && session.username !== name) clearSession()
-  if (!force && session !== null) return session
-  if (typeof password !== 'string' || password === '') {
-    throw new BuaaError('auth', 'SPOC 会话不存在，请先手动同步一次')
-  }
-
-  const epoch = sessionEpoch
-  loginUsername = name
-  loginPromise = login({ jar, username: name, password })
-    .then(next => {
-      if (epoch !== sessionEpoch) throw new BuaaError('cancelled', 'SPOC 会话已清除，请重新同步')
-      session = next
-      return next
-    })
-    .catch(error => {
-      if (error instanceof BuaaError) throw error
-      throw new BuaaError('network', 'SPOC 登录失败，请稍后重试')
-    })
-    .finally(() => {
-      loginPromise = null
-      loginUsername = ''
-    })
-  return loginPromise
+  return memory.acquire({
+    jar, username, password,
+    decide: (session, name) => (session.username !== name ? 'clear' : force ? 'login' : 'reuse'),
+  })
 }
 
 async function spocCall(active, operation, url, options = {}) {
@@ -471,18 +435,20 @@ async function loadAssignments(active) {
  * @param {{ jar?: object, username: string, password: string }} credentials
  */
 export async function fetchAssignments({ jar, username, password } = {}) {
+  const attempt = async active => {
+    const feed = await loadAssignments(active)
+    if (memory.activeSession() !== active) throw new BuaaError('cancelled', 'SPOC 会话已变更，请重新同步')
+    return feed
+  }
   let active = await ensureSession({ jar, username, password })
   try {
-    const feed = await loadAssignments(active)
-    if (session !== active) throw new BuaaError('cancelled', 'SPOC 会话已变更，请重新同步')
-    return feed
+    return await attempt(active)
   } catch (error) {
-    if (session !== active || error.code !== 'auth' || typeof password !== 'string' || password === '') throw error
+    if (memory.activeSession() !== active || error.code !== 'auth'
+      || typeof password !== 'string' || password === '') throw error
     clearSession()
     active = await ensureSession({ username, password, force: true })
-    const feed = await loadAssignments(active)
-    if (session !== active) throw new BuaaError('cancelled', 'SPOC 会话已变更，请重新同步')
-    return feed
+    return await attempt(active)
   }
 }
 
@@ -492,16 +458,16 @@ export async function fetchAssignments({ jar, username, password } = {}) {
  * sync instead of silently retrying credentials.
  */
 export async function refreshAssignments() {
-  const active = session
+  const active = memory.activeSession()
   if (active === null) {
     throw new BuaaError('auth', 'SPOC 会话不存在，请先手动同步一次')
   }
   try {
     const feed = await loadAssignments(active)
-    if (session !== active) throw new BuaaError('cancelled', 'SPOC 会话已变更，请重新同步')
+    if (memory.activeSession() !== active) throw new BuaaError('cancelled', 'SPOC 会话已变更，请重新同步')
     return feed
   } catch (error) {
-    if (session === active && error.code === 'auth') clearSession()
+    if (memory.activeSession() === active && error.code === 'auth') clearSession()
     throw error
   }
 }

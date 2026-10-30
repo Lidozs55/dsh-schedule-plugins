@@ -10,7 +10,7 @@
 
 /** @typedef {'genshin'|'hsr'|'zzz'|'wuwa'|'endfield'|'nte'} GameId */
 
-export const GAMES = [
+const GAMES = [
   { id: 'genshin', name: '原神' },
   { id: 'hsr', name: '崩坏：星穹铁道' },
   { id: 'zzz', name: '绝区零' },
@@ -28,6 +28,9 @@ export const getGame = id => GAME_BY_ID.get(id)
 
 export const isGameId = id => typeof id === 'string' && GAME_BY_ID.has(id)
 
+/** Source id this adapter writes into entry.source and the core's sourceState. */
+export const SOURCE_ID = 'gacha'
+
 /** Marker written into every entry owned by this plugin. */
 export const entryMarker = game => `[gacha:${game}]`
 
@@ -35,7 +38,7 @@ export const entryMarker = game => `[gacha:${game}]`
 export const kindMarker = kind => `[kind:${kind}]`
 
 export const ownsEntry = (entry, game) =>
-  (entry?.source === 'gacha' && typeof entry.sourceKey === 'string' && entry.sourceKey.startsWith(game + ':'))
+  (entry?.source === SOURCE_ID && typeof entry.sourceKey === 'string' && entry.sourceKey.startsWith(game + ':'))
   || (typeof entry?.description === 'string' && entry.description.includes(entryMarker(game)))
 
 export const ownsKind = (entry, game, kind) =>

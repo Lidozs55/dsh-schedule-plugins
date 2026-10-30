@@ -19,7 +19,6 @@ function harness(options = {}) {
     reports: [],
     emits: [],
     warnings: [],
-    infos: [],
     timers: [],
     cleanups: [],
     listeners: [],
@@ -135,7 +134,7 @@ function harness(options = {}) {
     vivarium,
     logger: {
       warn: (...args) => state.warnings.push(args.map(String).join(' ')),
-      info: (...args) => state.infos.push(args.map(String).join(' ')),
+      info: () => {},
     },
     effect(fn) {
       const dispose = fn()
@@ -261,9 +260,6 @@ test('task reports are facts only: pending/overdue/next, no derived pet edges', 
   assert.equal(facts.pending, 3)
   assert.equal(facts.overdue, 1)
   assert.deepEqual(facts.next, { title: '下一项', due: nextDue })
-  assert.equal('overdue' in facts, true)
-  // The bridge sends facts; the base owns tasks.overdue/tasks.clear.
-  assert.equal(h.state.reports.length >= 1, true)
 })
 
 test('a change pulse emits the raw observability signal and refreshes facts', () => {
@@ -404,14 +400,9 @@ const question = (request = {}, item = {}) => ({
     id: 'when',
     question: '安排在 10 月 24 日 14:00，可以吗？',
     options: [{ label: '可以' }, { label: '不合适' }],
+    ...item,
   }],
   ...request,
-  ...(Object.keys(item).length === 0 ? {} : { questions: [{
-    id: 'when',
-    question: '安排在 10 月 24 日 14:00，可以吗？',
-    options: [{ label: '可以' }, { label: '不合适' }],
-    ...item,
-  }] }),
 })
 
 test("a delivered session's two-option question is claimed and answered from the pet", async () => {

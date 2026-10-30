@@ -17,6 +17,7 @@
  */
 import {
   GAME_IDS,
+  SOURCE_ID,
   entryMarker,
   getGame,
   isGameId,
@@ -24,13 +25,17 @@ import {
   ownsEntry,
   ownsKind,
 } from './games.js'
+import { WATCH_PROMPT } from './commands.js'
 import { createCalendarApi } from './calendarApi.js'
-import { SOURCE_ID, normalizeState } from './state.js'
+import { isObject, normalizeState } from './state.js'
 
 const DAY_MS = 86_400_000
 const HOUR_MS = 3_600_000
 const REFRESH_TTL_MS = 3 * HOUR_MS
 const AUTO_REFRESH_MS = 6 * HOUR_MS
+
+/** Weekly Agent check slot, shared by registration and the public state. */
+const WATCH = { weekday: 3, time: '10:00', timeZone: 'Asia/Shanghai' }
 
 const pad = value => String(value).padStart(2, '0')
 
@@ -43,9 +48,6 @@ export class GachaError extends Error {
 }
 
 const invalid = message => new GachaError('invalid_input', message)
-
-const isObject = value =>
-  value !== null && typeof value === 'object' && !Array.isArray(value)
 
 /** Re-express a UTC (or any offset) RFC3339 instant as an explicit +08:00 ISO string. */
 export function toCstIso(value) {
@@ -124,6 +126,40 @@ function descriptionFor(game, state, plan) {
 
 const planIsLive = plan => plan !== null && (plan.updateStart !== null || plan.previewStart !== null)
 
+/** Keys a refresh owns and may write back into an existing entry. */
+const PATCH_KEYS = ['title', 'description', 'location', 'category', 'allDay', 'start', 'end']
+
+const isTimeKey = key => key === 'start' || key === 'end' || key === 'allDay'
+
+/**
+ * Build the update patch for an owned preview entry while keeping the fields
+ * the user edited. A refresh owns its source facts, not the user's work:
+ *
+ * - time-like keys (start/end/allDay) are never touched while the desired
+ *   entry is locked — official/agent times win
+ * - with a `previous` baseline, a field that no longer matches the baseline
+ *   was edited by the user since the last sync and is kept
+ * - without a baseline (pre-baseline entry, one-time migration semantics) the
+ *   old value is kept as long as the entry itself is not locked
+ *
+ * Returns the patch plus whether it differs from the current entry.
+ */
+export function patchPreservingUserEdits(target, desired, previous, locked) {
+  // allDay has historically been stored as false/undefined interchangeably;
+  // normalizing both sides up front keeps every comparison strict-equal.
+  const current = { ...target, allDay: Boolean(target.allDay) }
+  const patch = { ...desired, allDay: Boolean(desired.allDay) }
+  const baseline = previous == null ? null : { ...previous, allDay: Boolean(previous.allDay) }
+  for (const key of PATCH_KEYS) {
+    if (isTimeKey(key) && locked) continue
+    if (baseline !== null ? current[key] !== baseline[key] : !target.lock) {
+      patch[key] = current[key]
+    }
+  }
+  const changed = Object.keys(patch).some(key => current[key] !== patch[key])
+  return { patch, changed }
+}
+
 export function createGachaService(ctx, { service, calendarApi } = {}) {
   if (service === undefined) throw new Error('gacha-schedule: scheduleCore is required')
 
@@ -196,22 +232,9 @@ export function createGachaService(ctx, { service, calendarApi } = {}) {
     if (target === null) {
       target = await service.createEntry(desired, { allowConflicts: true })
     } else {
-      const patch = { ...desired }
-      // A refresh owns its source facts, not the user's editable fields.
-      const previous = gs.syncedPreview
-      for (const key of ['title', 'description', 'location', 'category', 'allDay', 'start', 'end']) {
-        const time = key === 'start' || key === 'end' || key === 'allDay'
-        if (time && desired.lock) continue
-        if (previous !== null && previous !== undefined && target[key] !== previous[key]) {
-          patch[key] = target[key]
-        } else if (!previous && !target.lock) {
-          patch[key] = target[key]
-        }
-      }
-      if (Object.keys(patch).some(key => key === 'allDay'
-        ? Boolean(target[key]) !== Boolean(patch[key]) : target[key] !== patch[key])) {
-        target = await service.updateEntry(target.id, patch, { allowConflicts: true })
-      }
+      const { patch, changed } =
+        patchPreservingUserEdits(target, desired, gs.syncedPreview, desired.lock)
+      if (changed) target = await service.updateEntry(target.id, patch, { allowConflicts: true })
     }
     gs.entries.preview = target.id
     gs.syncedPreview = desired
@@ -409,9 +432,7 @@ export function createGachaService(ctx, { service, calendarApi } = {}) {
       watch: {
         ...state.watch,
         enabled: state.watch.scheduleId !== null,
-        weekday: 3,
-        time: '10:00',
-        timeZone: 'Asia/Shanghai',
+        ...WATCH,
       },
       games: GAME_IDS.map(publicGame),
     }
@@ -523,14 +544,23 @@ export function createGachaService(ctx, { service, calendarApi } = {}) {
     return publicGame(id)
   }
 
-  const WATCH_PROMPT = [
-    '这是「二游前瞻」周检。请核对原神、崩坏：星穹铁道、绝区零、鸣潮、明日方舟：终末地、异环的官方版本前瞻直播与版本更新时间。',
-    '先运行 `schedule gacha list` 查看插件现有状态摘要（需要时先 `schedule gacha --help`）；摘要不含完整推算依据，也不作为官方证据。',
-    '再到各游戏 B 站官方账号查看最近的版本更新公告、前瞻预告和动态，重点确认官方是否已给出明确日期/时间；终末地的版本节奏不固定，必须优先核对。',
-    '发现官方明确时间时，用 `schedule gacha apply-official --game <id> --update-start/--preview-start ...` 按游戏写入（带时区 ISO 8601，UTC+8）；只改本插件维护的日程，不要动其他条目。',
-    '需要阅读公告原文时可先用 `schedule gacha posts --game <id>` 查看服务保存的原始公告与动态，再与官方渠道相互印证。',
-    '仅在成功核对且没有新信息时回复「本周无变化」；检索工具缺失、官方来源无法访问或材料不足时说明未核实，不推断无变化。',
-  ].join('\n')
+  /**
+   * Best-effort removal of the durable weekly task. The watch state is cleared
+   * (and persisted) even when the delete call fails — e.g. the task was
+   * already removed in the automation UI — so the card never points at a
+   * dead id.
+   */
+  async function unregisterWatch(schedule) {
+    if (schedule != null && state.watch.sessionId !== null && state.watch.scheduleId !== null) {
+      try {
+        await schedule.delete({ sessionId: state.watch.sessionId, id: state.watch.scheduleId })
+      } catch (error) {
+        ctx.logger.warn('gacha-schedule: watch delete failed: %s', error.message)
+      }
+    }
+    state.watch = { sessionId: null, scheduleId: null, registeredAt: null }
+    await persist()
+  }
 
   /**
    * Register (or remove) the durable weekly check via the platform
@@ -539,19 +569,9 @@ export function createGachaService(ctx, { service, calendarApi } = {}) {
    */
   async function setWatch(sessionId, { enabled = true } = {}) {
     const schedule = typeof ctx.get === 'function' ? ctx.get('schedule') : undefined
-    const watch = state.watch
 
     if (!enabled) {
-      if (schedule !== undefined && schedule !== null
-        && watch.scheduleId !== null && watch.sessionId !== null) {
-        try {
-          await schedule.delete({ sessionId: watch.sessionId, id: watch.scheduleId })
-        } catch (error) {
-          ctx.logger.warn('gacha-schedule: watch delete failed: %s', error.message)
-        }
-      }
-      state.watch = { sessionId: null, scheduleId: null, registeredAt: null }
-      await persist()
+      await unregisterWatch(schedule)
       info('weekly watch disabled')
       return { enabled: false, reason: '已取消每周 Agent 核对。' }
     }
@@ -567,26 +587,20 @@ export function createGachaService(ctx, { service, calendarApi } = {}) {
       throw invalid('缺少会话 id：请用 --session <id> 或设置 DSH_SESSION_ID / SCHEDULE_SESSION_ID')
     }
 
-    if (watch.scheduleId !== null && watch.sessionId !== null) {
-      try {
-        await schedule.delete({ sessionId: watch.sessionId, id: watch.scheduleId })
-      } catch (error) {
-        ctx.logger.warn('gacha-schedule: stale watch delete failed: %s', error.message)
-      }
-      // The old task is gone even if the delete call failed (e.g. already
-      // removed in the automation UI); never point the card at a dead id.
-      state.watch = { sessionId: null, scheduleId: null, registeredAt: null }
-      await persist()
+    if (state.watch.scheduleId !== null && state.watch.sessionId !== null) {
+      await unregisterWatch(schedule)
     }
 
     try {
       const record = await schedule.create(sessionId, {
         title: '[gacha] 二游前瞻周检',
         prompt: WATCH_PROMPT,
+        // The host automation API wants seconds and `weekdays`/`time_zone`
+        // names; this is the only place the WATCH slot is converted to it.
         weekly: {
-          time: '10:00:00',
-          time_zone: 'Asia/Shanghai',
-          weekdays: [3],
+          time: `${WATCH.time}:00`,
+          time_zone: WATCH.timeZone,
+          weekdays: [WATCH.weekday],
         },
       })
       state.watch = {
@@ -595,13 +609,12 @@ export function createGachaService(ctx, { service, calendarApi } = {}) {
         registeredAt: new Date().toISOString(),
       }
       await persist()
-      info('weekly watch enabled: %s (Wed 10:00 Asia/Shanghai)', record.id)
+      info('weekly watch enabled: %s (weekday %d, %s %s)',
+        record.id, WATCH.weekday, WATCH.time, WATCH.timeZone)
       return {
         enabled: true,
         scheduleId: record.id,
-        weekday: 3,
-        time: '10:00',
-        timeZone: 'Asia/Shanghai',
+        ...WATCH,
         prompt: WATCH_PROMPT,
       }
     } catch (error) {

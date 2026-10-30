@@ -12,7 +12,11 @@ window.__ModuleLoader__.load({
     const NS = 'buaaScheduleImport'
 
     return {
-      inject: ['slots', 'locale'],
+      // `scheduleShared` orders this fiber behind the core's apply: the chunks
+      // below sync-require the core's chunks, which only sit in the module
+      // table after the core materialized them — without the service the two
+      // applies race and boot can wedge in `loading`.
+      inject: ['slots', 'locale', 'scheduleShared'],
 
       async apply(ctx) {
         // The API chunk must materialize before the UI chunks that sync-require it.

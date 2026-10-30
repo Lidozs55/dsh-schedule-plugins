@@ -1,7 +1,7 @@
 {
   "name": "intelligent-calendar-for-buaaer",
   "version": "1.0.0",
-  "description": "智能日历应用 - 北航学生专用",
+  "description": "北航学生日程 DSH 插件集（dsh-schedule / dsh-schedule-buaa / dsh-schedule-gacha / dsh-schedule-bridge）",
   "private": true,
   "license": "MIT",
   "author": "BUAAer"

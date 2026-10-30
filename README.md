@@ -1,74 +1,63 @@
-# BUAAer 智能日程
+# BUAAer 智能日程 · DSH 插件集
 
-专为北航学生设计的日程管理工具：课程表同步、任务截止、日历条目、到期提醒。当前主开发线是 **DSH（DeepSeek Harness）Cordis 插件**形态——作为宿主内的 bundle 运行，没有独立后端；Agent 通过宿主暴露的认证 loopback `schedule` CLI 访问业务，UI 走宿主注入的 `/api` 通道。
+为北航学生做的 [DeepSeek Harness（DSH）](https://github.com/deepseek-harness/deepseek-harness)日程插件：一次登录导入整学期课表与考试，SPOC 作业自动变待办，博雅课程进日历，上课前能远程签到；日程、待办、提醒与 AI 助手在同一个宿主里闭环。
 
-> **状态（2026-10-22）**：Agent 接口已从常驻工具 schema 改为按需发现的 `schedule` CLI；
-> 插件拆成「日程核心 + 来源适配器」：`@lidozs55/dsh-schedule` 负责通用日程数据/UI/提醒/CLI，
-> `@buaaer/dsh-schedule-buaa` 通过注入 `scheduleCore` 与 `scheduleCommands`
-> 提供北航教务导入（一次拉整学期，学期起点决定周次→日期的换算），并用同一次登录同步
-> SPOC（智学北航）未提交作业为待办；当天课程的条目编辑器里有「远程签到」按钮（iclass）。
-> 二游前瞻
-> `@lidozs55/dsh-schedule-gacha` 同样注入核心，读取 gacha-calendar 服务的格式化结果，为原神/崩铁/绝区零/
-> 鸣潮/终末地/异环各把前瞻直播写入主日程，版本更新只在来源卡显示。桌宠桥
-> `@lidozs55/dsh-schedule-bridge` 已到设计 v2（提醒气泡覆盖任务/条目 + 任务状态上报 + 文本拖给桌宠收纳，`docs/dsh-plugin/09`）。
-> 旧 Electron 实现已于同日全部删除，仓库只剩插件形态。
+装好后侧边栏多一个「日程」面板：周历拖拽排日程、任务按截止与优先级过滤、提醒走页面通知或桌宠气泡；会话里对 AI 说一句"下周三下午两点加个会"，它就会写进你的日历。
 
-## 仓库结构
+## 插件组合
 
-```
-dsh-plugin/dsh-schedule/           # 日程核心 @lidozs55/dsh-schedule（Host + Client + bin/schedule.js）
-dsh-plugin/dsh-schedule-buaa/      # 北航来源适配器 @buaaer/dsh-schedule-buaa（依赖核心）
-dsh-plugin/dsh-schedule-gacha/     # 二游前瞻来源 @lidozs55/dsh-schedule-gacha（依赖核心，docs 12）
-dsh-plugin/dsh-schedule-bridge/    # 桌宠桥 @lidozs55/dsh-schedule-bridge（host-only，docs 09）
-docs/dsh-plugin/                   # 开发文档（架构基线 / DSH 平台参考 / 任务记录）
-package.json                       # 仓库元信息（各插件包自带 package.json）
-```
+| 包 | 作用 | 建议 |
+|---|---|---|
+| `@lidozs55/dsh-schedule` | 日程核心：日历条目、任务、提醒、`schedule` CLI、面板 UI | 必装 |
+| `@buaaer/dsh-schedule-buaa` | 北航教务来源：整学期课表/考试导入、SPOC 作业待办、博雅课程、iclass 远程签到 | 北航学生装 |
+| `@lidozs55/dsh-schedule-gacha` | 二游前瞻：原神/崩铁/绝区零/鸣潮/终末地/异环的版本与前瞻直播写入日程 | 玩二游可选 |
+| `@lidozs55/dsh-schedule-bridge` | 桌宠桥：提醒气泡、任务状态上桌宠，拖文字给桌宠收纳 | 用桌宠可选 |
 
-## 安装与使用
+推荐组合：北航学生装前两个；想追前瞻直播再加 gacha；桌宠用户再加 bridge。非北航用户也可以只用核心当通用日程用。
 
-1. 安装进 DSH 宿主：依次安装 `dsh-plugin/dsh-schedule`、`dsh-plugin/dsh-schedule-buaa`
-   （可选桌宠桥 `dsh-plugin/dsh-schedule-bridge`、二游前瞻 `dsh-plugin/dsh-schedule-gacha`）。
-   链接安装后改源码重启宿主即生效。
-2. 侧边栏出现「日程」入口；设置里只有一节「日程设置」：学期起点、类别维护（名称/颜色/增删与预览）、数据导入导出与清空，
-   以及北航来源追加的学号/密码/SPOC 开关导入卡片、二游前瞻追加的六款游戏开关。
-   其他学校/来源可按 `docs/dsh-plugin/11-source-plugins.md` 的契约新增适配器（同样追加到这个设置页）。
-3. 北航课表导入：在「日程设置」填学期起始日期（第一周周一），再到北航卡片填学号与统一认证
-   密码点「导入课表、考试与 SPOC 作业」。每学期做一次；密码仅当次使用、不保存。
-   同一登录会读取 SPOC 未提交作业写成待办，已提交的不生成；SPOC 失败只作为警告，不影响课表与考试。
-   卡片里的 SPOC 开关可整体关闭作业同步。手动同步后，宿主进程存活期间每 30 分钟自动刷新一次
-   作业截止时间；重启宿主后需再手动同步一次（会话只在内存，不落盘）。
-   同一次手动同步还会建立 iclass 远程签到会话（同样只在内存）。当天北航课程条目的编辑器里会出现
-   「远程签到」按钮；非当天、非北航教务导入的条目不会显示。签到只在点击时读取当天 iclass 课表并按
-   课程名与起止时间匹配，宿主重启或会话失效后需再手动同步一次。
-4. 二游前瞻（可选）：打开对应游戏的开关即可，插件每 6 小时从 gacha-calendar 服务读取版本更新与
-   前瞻直播时间；终末地节奏不固定，可在卡片里点「让 Agent 核对」并登记每周三的周检。
-5. Agent 入口是 `schedule` CLI，不再注册常驻工具。主插件启动后会在
-   `$DSH_HOME/schedule-cli/`（默认 `~/.dsh/schedule-cli/`）写入带认证令牌的实例描述和启动器，
-   并把该目录前置到宿主进程的 `PATH`：Windows 用 `schedule.cmd`，macOS/Linux 用 `schedule`；
-   也可运行 `node <该目录>/schedule.js`。首次使用先执行 `schedule --help`，分层帮助与 `guide`
-   会按需给出参数、示例和副作用。
-6. `.dsh/skills/schedule/SKILL.md` 只保留极简发现提示（CLI 入口、回执与冲突底线）。DSH 会自动
-   发现，日程相关会话按需加载；其他工作区使用时可复制到用户级 skills 目录
-   （`$DSH_HOME/skills/`，默认 `~/.dsh/skills/`）。
+## 安装
 
-## 文档
+前提：已安装 DSH 宿主（developer preview）。
 
-- **架构与决策基线**：`docs/dsh-plugin/00-architecture.md`
-- **新增日程来源**：`docs/dsh-plugin/11-source-plugins.md`
-- **二游前瞻来源**（gacha-calendar 服务、六游戏映射、CLI 写入）：`docs/dsh-plugin/12-gacha-preview.md`
-- DSH 插件开发参考（平台契约、服务/CLI/UI/数据速查）：同目录 `01`–`06`、`08`
-- 桌宠桥设计（已落地 v2）：`docs/dsh-plugin/09-vivarium-bridge.md`
-- UI 意图对齐返工记录（已完成）：`docs/dsh-plugin/10-ui-parity-rework.md`
-- Vikunja 借鉴与多端访问评估（remindLead/触屏适配据此落地）：`docs/dsh-plugin/14-vikunja-and-remote.md`
+1. 打开宿主侧边栏 **Plugins** 页，安装上面的包名（npm 源）；先装核心，再装其他。
+2. 开发安装（改源码即生效）：Plugins 页用 `link:<本仓库对应插件目录的绝对路径>` 安装。
+3. 安装后侧边栏出现「日程」入口，设置里出现「日程设置」。
 
-## 核心行为约定
+## 快速上手
 
-- 所有日历块都是带日期的普通条目：地点统一用可空 `location`，`lock` 默认 `false`，只阻止鼠标左键快捷移动/缩放，不限制编辑、删除或右键操作。教学安排归 `course`（课程），它只是普通类别，不另设条目模型。类别名称和颜色由用户在设置维护；“其它”不可删除，删除其它类别只将日程重新归类。
-- 显示日 = 04:00 → 次日 04:00（凌晨 0–4 点属于前一格日；客户端几何在 `client.gridmath.js`，宿主锚点在 `host/semester.js`，各只此一份）。
-- 修改任务/条目的唯一实现是 Host 领域服务；UI 与 Agent 的 `schedule` CLI 调同一方法。
-- 插件内零 LLM 调用：自然语言建日程 = 在会话内让 Agent 调用 `schedule` CLI。
-- 学号等来源状态由来源插件持久化在核心 domain 的 `sourceState`；教务密码只作当次调用入参，绝不落盘、不写日志。手动同步建立的 SPOC 与 iclass 远程签到会话都只存插件进程内存，重启即失效，不保存密码、token 或 sessionId。
-- 北航导入是整学期快照：按教务实际周次生成锁定的 `course`/`exam` 条目并保留考试任务；稳定来源键保留条目 ID，缺席条目只从本来源删除，不外推空周。SPOC 未提交作业按「课程 + 作业名」对账为 `homework` 待办并更新 `due`，已提交作业不生成待办，删除只限本源与当前学期。远程签到只接受当天、`source='buaa'` 且来源键以 `teaching:` 开头的条目；宿主按课程名与北京时间匹配 iclass 当天的排课行，客户端不能指定任意课程 id。
-- 任务与条目提醒由核心无状态派生：页面每 30 秒轮询并显示 Web Notification/页面内提示，可选桌宠桥消费同一集合；页面通知随页面生命周期，桌宠气泡可独立运行。条目与任务可单独设置提醒提前量（`remindLead`，空值跟随全局四档；CLI `--remind-lead`，`-1` 清除）。
-- 触屏适配（供 remote-web-ui 等手机远程访问，`docs/dsh-plugin/14`）：长按条目/空白替代右键（编辑/落 1 小时草稿），coarse 指针下按钮/输入放大到 44px/16px，≤640px 窄屏默认日视图（工具栏日/周切换，选择记忆在 localStorage）。
-- 导出/导入仅处理 `global`、`entries`、`tasks`。启动时的一次性存量转换按实际周次生成条目、保留改期、跳过取消项；需要学期起点，不提供旧 API/旧 JSON 导入兼容。升级前请备份宿主数据（见 `docs/dsh-plugin/13-entry-model.md`）。
+- **学期起点**：日程设置里填本学期第一周周一的日期，周次换算都基于它。
+- **导入课表**：北航卡片填学号与统一认证密码，点「导入课表、考试与 SPOC 作业」。每学期做一次；密码仅当次使用，不保存。
+- **作业待办**：同一次导入会把 SPOC 未提交作业写成待办并持续刷新截止时间；已提交的不生成。宿主运行期间每 30 分钟自动刷新。
+- **博雅课程**：已选博雅随导入写入日历，退选后下次导入自动移除。
+- **远程签到**：手动同步后，当天北航课程的编辑器里有「远程签到」按钮（iclass）。
+- **二游前瞻**：打开对应游戏开关即可，每 6 小时自动更新；节奏不固定的可点「让 Agent 核对」。
+- **让 AI 记日程**：会话里直接说就行。Agent 通过 `schedule` CLI 写入（首次自动执行 `schedule --help` 发现命令），也可以在终端自己用，`schedule --help` 分层查看。
+- 显示日按 04:00 切分（凌晨 0–4 点算前一天）；导出/导入覆盖日历条目与任务，学期起点等设置保留。
+
+## 为你的学校写适配器
+
+核心与来源是解耦的：北航适配器只是一个范例。其他学校的教务/课程服务可以按 [docs/dsh-plugin/11-source-plugins.md](docs/dsh-plugin/11-source-plugins.md) 的契约写自己的来源插件，装进同一个日程面板。欢迎 issue 讨论，也欢迎 PR 把你的学校加进来。
+
+## 开发文档
+
+- 架构基线：[docs/dsh-plugin/00-architecture.md](docs/dsh-plugin/00-architecture.md)
+- 来源适配器契约：[docs/dsh-plugin/11-source-plugins.md](docs/dsh-plugin/11-source-plugins.md)
+- 二游前瞻：[docs/dsh-plugin/12-gacha-preview.md](docs/dsh-plugin/12-gacha-preview.md)
+- 桌宠桥：[docs/dsh-plugin/09-vivarium-bridge.md](docs/dsh-plugin/09-vivarium-bridge.md)
+- DSH 平台参考与开发流程：[docs/dsh-plugin/](docs/dsh-plugin/README.md)
+
+各插件自带 `node --test` 测试（进各插件目录运行）。
+
+## 参与贡献
+
+Bug、功能建议、新学校适配、文档改进都欢迎提 [issue](../../issues) 或 [PR](../../pulls)；提 PR 前请先跑通对应插件的测试。
+
+## 许可
+
+[MIT](LICENSE)
+
+## 特别鸣谢
+
+- **[UBAA](https://github.com/BUAASubnet/UBAA)**（MIT © 2026，BUAASubnet）：北航教务课表/考试、iclass 签到、SPOC 作业、博雅课程四个数据通道的接口逆向成果，是北航适配器的直接参考。
+- **[Vikunja](https://vikunja.io)**（AGPL-3.0；仅借鉴产品设计，未复用代码）：提醒提前量与移动端触屏适配的设计参考。
+- **[gacha-calendar](https://gacha.modenc.top)**：二游前瞻插件的数据源服务。

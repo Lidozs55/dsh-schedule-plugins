@@ -54,7 +54,7 @@
 }
 ```
 
-类别来自 `getMeta().categories` 的有序 `{ id, name, color: "#RRGGBB" }` 定义，id 稳定；默认七项 `course/homework/exam/meeting/study/sports/other`，名称与颜色见 `00` §3.3。`other` 固定名“其它”、不可删除但可改色；其余预设均可删除，现有条目重归 `other`。手工未知 id 报错，来源快照未知 id 归 `other`，来源不得恢复用户删除的预设。地点不另设来源专用字段。锁定不限制编辑、删除、右键菜单或 CLI 更新。
+类别模型与增删规则的权威是 `00` §3.3；来源视角只需知道：读 `getMeta().categories` 拿有序 `{ id, name, color: "#RRGGBB" }` 定义（id 稳定），写入时引用其 id；**来源快照里的未知 id 归 `other`**，来源不得恢复用户删除的预设（手工写未知 id 则直接报错）。地点统一 `location`、锁定统一 `lock`，不另设来源专用字段；`lock` 语义见 `00` §3。
 
 `replaceSourceEntries(source, inputs)` 是**该来源完整条目快照**：
 
@@ -64,7 +64,7 @@
 - 这是完整性声明，不能拿局部抓取结果冒充完整快照；普通增量使用条目 CRUD，不另设类型或周期接口。
 - 来源设置自己写 `setSourceState`，快照接口不解释学期码、教师、游戏或公告。
 
-核心 `clearAllData()` 清空 `entries` / `tasks`，`global` 与来源状态保留。导出/导入主体为 `global`、`entries`、`tasks`，接受 UI 的 `exportedAt`；完整保留类别定义，不接受旧模型 JSON。空白目标采用导入定义，已有数据目标遇 id 语义冲突会改映射，重试复用同名同色等价定义。启动时的隔离存量转换不属于来源公开契约（见 `13-entry-model.md`）。
+核心 `clearAllData()` 清空 `entries` / `tasks`，`global` 与来源状态保留。导出/导入语义（主体 `global`/`entries`/`tasks`、`exportedAt`、类别往返、空白/已有数据目标的行为）见 `00` §3，不接受旧模型 JSON；启动时的隔离存量转换同样不属于来源公开契约（`00` §3）。
 
 ---
 
@@ -79,6 +79,10 @@
 sourceState.buaa = {
   buaaId: '25371416',
   termCode: '2026-2027-1',
+  bykcEnabled: true,                 // 博雅已选课程同步开关
+  bykcTerm: '2025-2026-2',           // 博雅最近一次读取的学期名
+  bykcLastSyncAt: '2026-10-26T02:00:00.000Z',
+  bykcError: '',                     // 最近一次博雅失败原因；成功后清空
   spocEnabled: true,                 // SPOC 作业同步开关
   spocTermCode: '2026-20271',        // SPOC 最近一次返回的学期码（与教务分隔符不同）
   spocLastSyncAt: '2026-10-22T02:00:00.000Z',
@@ -98,7 +102,8 @@ sourceState.buaa = {
 - 例外只允许**进程内存会话**：来源确实需要周期刷新（如北航 SPOC 作业截止时间）或跨调用交互
   （如 iclass 远程签到），可以把 token + jar 或 userId/sessionId 放在来源自己的模块变量里，
   但必须满足：不写 `sourceState`、不落盘、不写日志、没有密码也能自动过期、宿主重启后失效并
-  提示用户再手动同步一次。北航的 `host/spoc.js` 与 `host/signin.js` 即此模式；30 分钟轮询
+  提示用户再手动同步一次。北航的 `host/spoc.js` 与 `host/signin.js` 即此模式（`host/bykc.js`
+  则走上面的默认：不建会话，随手动导入按需登录）；30 分钟轮询
   只读 SPOC 内存会话，签到按钮只读 iclass 内存会话，都不会重新索要密码。
 - 修改学号或卸载来源插件会清除两种会话；关闭 SPOC 只清除 SPOC 会话。登录与请求绑定账号和
   会话代次，已取消的请求不能恢复旧会话，迟到的失败也不能清除新会话。手动同步与后台轮询不重叠。
@@ -176,11 +181,19 @@ sourceState.buaa = {
 
 ## 7. 北航适配器作为示例
 
-- `host/state.js`：`sourceState.buaa`（学号/学期码/SPOC 开关、上次同步与错误，仅供显示）。
+> **示例深读**：本节是北航事实的唯一权威，但新来源**无需仿照**这些协议细节（AES/RSA 请求头、
+> CAS ticket、校方 HTTP 接口、考试对账键）——新适配器只需满足 §2 契约（解析外部数据 →
+> `replaceSourceEntries` / CRUD → `sourceState`）。这些细节的价值在于排查北航同步问题、
+> 或为同一所学校写下一个适配器。
+
+- `host/state.js`：`sourceState.buaa`（学号/学期码/博雅与 SPOC 开关、上次同步与错误，仅供显示；字段清单见 §3）。
+- `host/session.js`：SPOC/iclass 共用的**进程内存会话**工厂——单飞登录（同账号并发登录合并为一次）、会话代次守卫（清除/切换账号后，仍在途的旧登录结果不能复活已清会话）、对外只暴露安全快照（账号与活跃时间，不含 secret）。
 - `host/jw.js`：SSO 登录 + 两个整学期端点（`getMyScheduleDetail.do?type=term`、`exams.do`）；
-  JW 自身不缓存登录 jar；SPOC 可将复用的 jar 保留在其进程内会话中，始终不落盘。`ssoLoginAt` 同时供 SPOC/iclass 换 ticket。
+  JW 自身不缓存登录 jar；SPOC 可将复用的 jar 保留在其进程内会话中，始终不落盘。`ssoLoginAt` 同时供 SPOC/iclass/博雅按需换 ticket。
+  端点与登录流程参考 UBAA（BUAASubnet/UBAA，MIT）的 `LocalScheduleApi.kt`。
 - `host/spoc.js`：SPOC（智学北航）CAS token 交换、AES 查询参数、作业分页与解析；会话（token + jar）
   只存模块内存，供 30 分钟轮询复用，宿主重启即失效。密码仍然只出现在手动同步的当次调用里。
+  协议（CAS 换 token、AES 参数加密、分页端点）移植自 UBAA 的 `LocalSpocSupport.kt`。
 - `host/spoc-sync.js`：未提交作业 → 核心 `homework` 任务。身份键是归一化的「课程 + 作业名」，
   截止时间变化只更新 `due`；已提交作业不生成待办；删除只限 `source='spoc'` 且不早于学期起点，
   手动任务同名时只校正 `due`。只有完整、有效的分页才能对账；缺页、达到分页上限或 SPOC 当前学期
@@ -190,13 +203,19 @@ sourceState.buaa = {
   触发时只读当天 iclass 课表，按归一化课程名与北京时间起止匹配排课行，已签到直接返回成功。
   非当天条目、非 `source='buaa'` 或非 `teaching:` 来源键一律拒绝，客户端不能传任意课程 id。
   时间戳与签到请求沿用 UBAA 的校方 HTTP `:8081` 接口，会话不落盘不等于传输加密；当前未实现 WebVPN。
+- `host/bykc.js`：博雅（BYKC）已选课程读取。复用手动同步的 JW SSO jar 走 `sscv/cas/login`
+  重定向链换取 `token`（失败时用密码补一次完整 SSO 登录），`getAllConfig` 选出当前学期，
+  `queryChosenCourse` 按学期窗口取已选课程。每个请求体 AES-128-ECB 加密，密钥与 SHA-1 摘要
+  RSA 包进 `ak`/`sk` 头（协议移植自 UBAA 的 `LocalBykcApi.kt` / `LocalBykcCrypto.kt`）。每门课
+  是带绝对时间的单场课程条目（`bykc:<courseId>`，含板块与主讲）；无名称或时间无效的记录跳过
+  并计数，不伪造。博雅不建会话：选课变化靠再次手动导入刷新，与教务同一待遇。
 - `host/parse.js`：整学期课表按学期起点与教务实际周次生成带日期的普通课程条目；`exams.do` 生成考试条目与考试任务草稿。周次从 `cellDetail` 的周次行取（一个格可能有多组），退化为 `weeksAndTeachers`；单双周展开后只生成实际日期，不外推空周。教学安排使用 `category: 'course'`，考试使用 `exam`，均为 `lock: true`；地点统一为 `location`。教师姓名/学分/课程号/教务配色等日历不消费字段就地丢弃。
 - 类别升级独立标记 `categoryModelVersion: 1`：只把旧 BUAA `sourceKey` 以 `teaching:` 开头、类别为 `study` 的教学条目迁为 `course`，手建学习不变；若目标类别已删则归 `other`，不复活预设。
-- `host/sync.js`：一次登录 → `replaceSourceEntries('buaa', [...teachingEntries, ...examEntries])` 完整来源快照 + 考试任务对账；随后用同一登录读取 SPOC 作业并对账为 `homework` 任务。重复导入用稳定键保留条目 ID，缺席条目从本来源移除。学期码由 `termStart` 推导（见下），`-3` 为暑期学期。考试任务身份键是**名称 + 考试日期**，同名期中/期末不能合并。任务删除范围限于本源且日期不早于学期起点；用户手建的同名考试任务只校正 `due`，标题/优先级/备注归用户。SPOC 或 iclass 会话失败只写入 `spocError`/`signinError` 并出现在回执里，不影响课表/考试。
+- `host/sync.js`：一次登录 → `replaceSourceEntries('buaa', [...teachingEntries, ...examEntries])` 完整来源快照 + 考试任务对账；随后用同一登录读取博雅已选课程并写入**独立**快照 `replaceSourceEntries('buaa-bykc', ...)`（博雅失败/关闭不动课表，课表快照也不含博雅条目），再读取 SPOC 作业并对账为 `homework` 任务。重复导入用稳定键保留条目 ID，缺席条目从本来源移除。学期码由 `termStart` 推导（见下），`-3` 为暑期学期。考试任务身份键是**名称 + 考试日期**，同名期中/期末不能合并。任务删除范围限于本源且日期不早于学期起点；用户手建的同名考试任务只校正 `due`，标题/优先级/备注归用户。博雅、SPOC 或 iclass 会话失败只写入 `bykcError`/`spocError`/`signinError` 并出现在回执里，不影响课表/考试。
 - `host/commands.js`：`schedule buaa sync` 与导入 guide（Agent 调）。
-- `host/api.js`：`/api/buaa-schedule`（设置卡与签到按钮调；写学号与 SPOC 开关，`signin` 按已存条目 id 在宿主侧匹配，学期起点归核心设置页）。
+- `host/api.js`：`/api/buaa-schedule`（设置卡与签到按钮调；写学号、博雅/SPOC 开关，`signin` 按已存条目 id 在宿主侧匹配，学期起点归核心设置页）。
 - `client.api.js`：设置卡与签到按钮共用的 `/api/buaa-schedule` 客户端与错误解码，避免两个 UI chunk 互相依赖。
-- `client.settings.js`：一张设置卡（学号、密码、SPOC 开关与状态、iclass 会话状态、导入），注册进核心的 `schedule.settings.blocks`。
+- `client.settings.js`：一张设置卡（学号、密码、博雅与 SPOC 开关及状态、iclass 会话状态、导入），注册进核心的 `schedule.settings.blocks`。
 - `client.signin.js`：向核心 `schedule.entry.actions` 注册「远程签到」动作；只在当天 `source='buaa'` 且来源键为 `teaching:` 的条目上渲染。
 
 **学期码推导**（`host/time.js` `termCodeFor(termStart)`，按学期起点所在月份）：

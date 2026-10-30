@@ -1,8 +1,8 @@
 # 00 · 架构与既定决策
 
-> 本文是本插件的**架构基线**：代码地图、拍板决策、数据模型、平台契约陷阱、旧实现参照与验收状态。
-> DSH 平台通用参考见 `01`–`06`；开发/验证流程见 `08`；UI 历史意图见 `10`，统一条目模型与切换边界见 `13`。
-> 历史过程（迁移清单演化、逐文件清点底稿）已由 git 留档，不再在文档中保留。
+> 本文是本项目的**架构基线**：代码地图、拍板决策、数据模型（条目字段/类别/导入导出/lock 的唯一权威见 §3）、平台契约陷阱。
+> DSH 平台通用参考见 `01`–`06`；开发/验证流程见 `08`；来源适配器契约与北航细节见 `11`；二游前瞻见 `12`；桌宠桥见 `09`。
+> 历史过程（迁移清单演化、旧实现逐条判定、验收时点日志）已由 git 留档，不再在文档中保留。
 
 ---
 
@@ -51,18 +51,24 @@ dsh-plugin/dsh-schedule/
 dsh-plugin/dsh-schedule-buaa/
 ├── package.json          # exports: "." / "./client"；dsh.bundle.patch + dsh.client
 ├── cordis.patch.yml      # 插入 row buaa-schedule
-├── index.js              # inject: [... 'timer']；手动同步 + 30 分钟 SPOC 轮询
+├── index.js              # inject: ['scheduleCore', 'connection', 'scheduleCommands', 'timer']；手动同步 + 30 分钟 SPOC 轮询
 ├── host/
-│   ├── state.js          # sourceState.buaa（学号/学期码/SPOC 开关与上次结果，仅供显示）
+│   ├── state.js          # sourceState.buaa 归一化（仅供显示；字段清单见 11）
+│   ├── session.js        # SPOC/iclass 共用的"仅内存会话"工厂：single-flight 登录 + 会话代次守卫
 │   ├── jw.js             # 北航 SSO + 两个整学期端点（课表 / 考试），登录 jar 仅当次
 │   ├── spoc.js           # SPOC（智学北航）CAS 换 token、作业分页；会话仅存进程内存
 │   ├── spoc-sync.js      # SPOC 未提交作业 → homework 任务对账
+│   ├── signin.js         # iclass 远程签到（userId/sessionId 仅存进程内存）
+│   ├── bykc.js           # 博雅已选课程读取（AES/RSA 请求协议；不建会话，随手动导入刷新）
 │   ├── parse.js          # 整学期课表 → 按实际周次生成带日期的课程条目
-│   ├── sync.js           # 一次同步：登录 → 拉取 → replaceSourceEntries + 考试/SPOC 任务对账
+│   ├── sync.js           # 一次同步：登录 → 课表/考试快照 → 博雅独立快照 → SPOC 任务对账
 │   ├── commands.js       # schedule buaa sync + 导入 guide
-│   ├── api.js            # /api/buaa-schedule（设置页通道）
+│   ├── api.js            # /api/buaa-schedule（设置页与签到按钮通道）
 │   └── time.js           # 来源侧学期码/教学周换算（不 import 核心内部模块）
-└── client.js / client.settings.js  # 往核心的 schedule.settings.blocks 槽里追加设置卡
+└── client.js             # Client 入口：依赖序装载分块（先 client.api.js）
+    client.api.js         # 设置卡与签到按钮共用的 /api/buaa-schedule 客户端
+    client.settings.js    # 往核心的 schedule.settings.blocks 槽追加设置卡
+    client.signin.js      # 往核心的 schedule.entry.actions 槽注册「远程签到」动作
 ```
 
 ```
@@ -73,12 +79,22 @@ dsh-plugin/dsh-schedule-gacha/
 ├── host/
 │   ├── games.js          # 六款游戏的 id/名称与条目归属标记（采集、规则与推算在服务端）
 │   ├── calendarApi.js    # gacha-calendar 服务 HTTP 客户端（games / posts / overrides）
+│   ├── bili.js           # B 站官方只读接口转发：账号映射、浏览器请求头、风控识别与兜底
+│   ├── http.js           # 两个 HTTP 客户端共用的超时/中断/传输失败分类
 │   ├── state.js          # sourceState.gacha
 │   ├── service.js        # 服务视图映射、条目对账、官方覆盖转发、周检登记
-│   ├── commands.js       # schedule gacha list/refresh/posts/apply-official/watch + guide
+│   ├── commands.js       # schedule gacha 命令树 + guide（子命令清单见 12）
 │   └── api.js            # /api/gacha-schedule（设置页通道）
 ├── client.js / client.settings.js  # 六款游戏开关 + 刷新 + Agent 核对入口
 └── test/                 # 服务映射、对账、周检与命令测试（node --test）
+```
+
+```
+dsh-plugin/dsh-schedule-bridge/
+├── package.json          # host-only：exports 只有 "."，无 client 半
+├── cordis.patch.yml      # 插入 row schedule-bridge
+├── index.js              # inject: ['scheduleCore', 'vivarium']；Config 三开关
+└── bridge.js             # 提醒气泡、任务状态上报、拖放暂存确认与会话中继（契约见 09）
 ```
 
 数据流铁律：**一个操作只有一个实现**（核心服务方法）。来源插件通过
@@ -89,7 +105,7 @@ dsh-plugin/dsh-schedule-gacha/
 来源状态铁律：核心 domain 的 `global.sourceState` 是来源插件的扩展点——每个来源一个 key，
 值是 JSON 字符串，核心不理解其内容。新增学校/导入格式不需要改核心 schema。
 
-时间语义铁律（2026-10-19 起）：**显示日 = 04:00 → 次日 04:00**。客户端几何/分桶在
+时间语义铁律：**显示日 = 04:00 → 次日 04:00**。客户端几何/分桶在
 `client.gridmath.js`（唯一一份），宿主锚点/推导在 `host/semester.js`（唯一一份）；
 "今天"的显示锚点在 04:00 前取昨天（`anchorToday`，双侧同规则）。
 
@@ -109,8 +125,10 @@ dsh-plugin/dsh-schedule-gacha/
 | R9 | 精力周期整个概念（数据/设置/逻辑）：**删除** |
 | R10 | 大组件按职能拆分重写（单组件 ≤300 行），不整体搬运 Vue 代码 |
 | R11 | 模型选择/key/限流均不进插件 |
+| R12 | 考试提醒**有意单档**提前量（不做"提前 1 天 + 当天"两级），Config 可调；确需多档由 Config 配多个任务等价实现 |
+| R13 | 任务模型只认截止时刻：考试 `endTime` 写进备注（`结束：15:20`）不进 `due`、不另造字段；任务占用时段不参与条目冲突检测（任务非日程块） |
 
-**有意不迁移/已删除**（未来不要"顺手恢复"）：Electron 托盘/悬浮窗/窗口控制、cpolar 与手机端 SPA、Flask/JWT/静态托管、自有 LLM key 管理、`--primary-color` 主题体系、条目逐条任意 hex 颜色（类别配色不在此限制内）、`Task.urgency`、只物化未来 7 天的截断导入。旧 README 声称的四象限视图、专注模式、头像上传、Chart.js **代码里从未存在**，属新功能立项范畴；SPOC 同步已于 2026-10-22 落地（见 §5 北航来源插件），不属于旧实现遗留。
+**有意不迁移/已删除**（未来不要"顺手恢复"）：Electron 托盘/悬浮窗/窗口控制、cpolar 与手机端 SPA、Flask/JWT/静态托管、自有 LLM key 管理、`--primary-color` 主题体系、条目逐条任意 hex 颜色（类别配色不在此限制内）、`Task.urgency`、只物化未来 7 天的截断导入、SmartInput 前端 LLM 解析（Agent 会话 + 剪贴板队列替代）、旧实现"读接口删过期任务"的副作用（已知缺陷，不修）、导入条目独立编辑路径（与手建走同一 CRUD）、同步成功后的课表颜色联动（完成态只改渲染不改数据，§3.3）。旧 README 声称的四象限视图、专注模式、头像上传、Chart.js **代码里从未存在**，属新功能立项范畴；SPOC 同步已落地（见 `11`），不属于旧实现遗留。
 
 ---
 
@@ -140,9 +158,9 @@ global: { termStart: '' /*第一周周一 YYYY-MM-DD；空串表示未设*/,
 - `source` / `sourceKey` 只记录归属与稳定身份，不派生另一种 UI 类型。完整来源快照的写法见 `11` §2。
 - 新建 ID 通常由 `crypto.randomUUID()` 生成；来源更新按稳定键保留既有 ID。当前量级允许全表遍历。
 - `sourceState` 是来源私有状态容器；核心只做 JSON 往返，不理解学号、公告或版本。
-- 导出/导入主体为 `global`、`entries`、`tasks`，接受 UI 的 `exportedAt` 元数据；列表完整往返，空白目标采用备份定义，已有数据目标遇同 id 不同语义会新建 id 并重映射导入条目，重试复用等价定义（详见 `13`）；清空只删除两张业务表，保留学期起点与来源设置。
-- 类别迁移独立使用 `categoryModelVersion: 1`：仅把旧 `source=buaa`、`sourceKey` 以 `teaching:` 开头且类别为 `study` 的教学条目改为 `course`；手建学习不变，旧规则直接物化为 `course`，已删除类别仍归 `other`。过渡 schema 保留类别列表与版本字段，重试不丢配置。
-- 启动时一次性把存量周规则按实际周次转成带日期的条目；需要 `termStart`，保留改期，取消项不生成；无旧 API/旧 JSON 导入兼容。隔离转换与备份边界见 `13-entry-model.md`。
+- 导出/导入主体为 `global`、`entries`、`tasks`，导出带完整 `global.categories`，导入接受 UI 的 `exportedAt` 元数据。类别列表完整往返：空白目标采用备份定义（含顺序与颜色）；已有数据目标保留本地定义，遇同 id 不同语义会新建 id 并重映射导入条目，同 id 同名同色直接复用，重试复用等价定义不重复增长；已有数据目标的 `other` 保留本地定义。导入后客户端重读 metadata。清空只删除两张业务表，保留学期起点与来源设置。
+- 类别迁移独立使用 `categoryModelVersion: 1`（与 `entryModelVersion` 互不替代）：仅把旧 `source=buaa`、`sourceKey` 以 `teaching:` 开头且类别为 `study` 的教学条目改为 `course`；手建学习不变，旧规则直接物化为 `course`，已删除类别仍归 `other`。过渡 schema 保留类别列表与版本字段，迁移标记最后写入，重复启动不丢配置、不复活删除项。
+- 存量周规则的启动迁移：一次性把旧周期规则按实际周次展开为带日期的条目，确定性 id 保证失败重试不重复；需要 `termStart`，缺失时明确拒绝、不猜日期、不删原始数据；保留改期，取消项不生成；无旧 API/旧 JSON 导入兼容。持久迁移独立于代码回退——迁移在重启/重载插件时执行，升级前应备份宿主业务存储，代码回退不应直接覆盖已迁移的存储。
 
 ### 3.3 动态类别与配色
 
@@ -174,7 +192,7 @@ global: { termStart: '' /*第一周周一 YYYY-MM-DD；空串表示未设*/,
 | 剪贴板"发送到新会话" | 0.2.x 无 composer 预填面。用 `ctx.remote.session.create({})` → `ctx.remote.session.prompt({mode:'queue', content:[text, ...image]})` → `ctxWorkspace.openSession(id)`——队列文本直接成为新会话首条消息，图片以 `{type:'image', mediaType, data, name?}` 附件块随行（Host 侧再转持久附件） |
 | 服务暴露形态 | `export function apply` + `ctx.effect(() => ctx.provide('scheduleCore', service))`；命令扩展点用同一个 `ctx.provide('scheduleCommands', registry)`；桥走 `inject: ['scheduleCore']` |
 | Agent 传输 | 认证 loopback HTTP（随机端口 + bearer token + Host 校验），CLI 只转发注册命令树；不开放任意 service/route，也不让 CLI 直接打开数据库 |
-| 提醒投递 | 提醒是**纯派生**：`host/reminders.js` 按 Config 提前量现算 `service.upcomingReminders()`（条目/任务的非空 `remindLead` 优先），条目带 `kind: 'task'|'entry'` 与确定性 `key`。页面打开时 `client.notify.js` 每 30s 轮询 `/api/schedule-core?view=reminders`，在 `at−60s` 窗口内弹 Web Notification（未授权时页面内 toast）；桌宠桥读同一派生集做气泡。派生结果按 `key@at` 去重 |
+| 提醒投递 | 提醒是**纯派生**：核心按 Config 提前量现算 `service.upcomingReminders()`，页面通知（`client.notify.js`）与桌宠桥气泡读**同一派生集**投递，均不经 Agent 会话；机制与投递面见 `05` §4 |
 | 冲突校验 | `createEntry/updateEntry/moveEntry/batchCreateEntries` 全量内置重叠检测（所有普通条目统一参与）；默认拒绝并返回可行动原因，`allowConflicts=true`（CLI `--allow-conflicts` / UI 确认框）放行 |
 | "24h 内到期"条 | 核心插件 `UpcomingStrip` 纯读展示 |
 
@@ -189,26 +207,24 @@ export const inject = ['storageDomain', 'connection', 'systemPrompt']
 - **为什么**：`ctx.get()` 是即时查找、无激活顺序保证——本包先于 `connection` 激活时 get 返回 undefined，静默降级导致 `/api` 路由从未注册（2026-10-17 实测 404 事故）。必需 inject 让 cordis park 到提供者激活为止，是唯一确定性契约。
 - 代价（已知限制）：profile 里缺任一提供者时**整个核心插件不激活**。web/desktop 部署的
   base + web-app bundle 恒提供这三个，所以当前可接受。
-- `ctx.timer` 是混入 context 的助手，不需要 inject；`client.js` 已声明客户端侧的 `timer`。
+- `ctx.timer` 在 Host 侧同样是**注入服务**：宿主插件要写 `ctx.timer` 就必须在 `inject` 里列
+  `'timer'`，否则激活时报 `cannot get property "timer" without inject`（gacha 曾踩过，机制见 `05` §2）。
+  核心 Host 不用 timer；客户端侧 `client.js` 已声明自己的 `timer`。
 - CLI 传输层不消费任何宿主服务：`startScheduleCliServer` 只用 `ctx.logger`（可选）。
 
 **来源适配器** `@buaaer/dsh-schedule-buaa` 与 `@lidozs55/dsh-schedule-gacha` 声明
-`inject = ['scheduleCore', 'connection', 'scheduleCommands']`：`scheduleCore` 是硬依赖
+`inject = ['scheduleCore', 'connection', 'scheduleCommands', 'timer']`：`scheduleCore` 是硬依赖
 （核心未激活则 cordis park 住来源插件）；`connection` 是设置页通道；`scheduleCommands`
-是向 `schedule` CLI 注册自身命名空间的扩展点。`systemPrompt` 用 `ctx.get` 可选读取，
-缺失时只少对应表面，不影响同步与数据写入。
+是向 `schedule` CLI 注册自身命名空间的扩展点；`timer` 供 SPOC 30 分钟轮询 / 6 小时刷新。
+`systemPrompt` 用 `ctx.get` 可选读取，缺失时只少对应表面，不影响同步与数据写入。
+桌宠桥 `@lidozs55/dsh-schedule-bridge` 声明 `inject = ['scheduleCore', 'vivarium']`
+（核心或 vivarium 缺席即 park）。
 
 ### 4.4 提醒子系统
 
-`attachReminders(ctx, service, config)`：Config 提供 `remindersEnabled` 与任务作业/考试/其他提前量、条目 `eventLeadMinutes`（考试条目走考试档）。`service.upcomingReminders()` 只有 `kind: 'task'|'entry'` 与确定性 `key`：任务按截止派生，条目由 `host/schedule-reminders.js` 按开始时间派生并携带 `location`。
-
-投递面有两个，都读同一派生集：
-
-- `client.notify.js`：页面打开时每 30s 轮询 `GET /api/schedule-core?view=reminders`，在 `at−60s`
-  窗口内用 Web Notification 呈现（未授权/前台时退化为页面内 toast），按 `key@at` 去重；
-- 桌宠桥：`ctx.vivarium.notices.post` 气泡（可选增强）。
-
-`remindersEnabled: false` 时派生集为空。页面通知随页面生命周期，桌宠桥可独立运行。
+提醒是**纯派生**：核心 `host/reminders.js` 按 Config 提前量现算 `service.upcomingReminders()`
+（条目/任务的非空 `remindLead` 优先），页面通知（`client.notify.js` 轮询）与桌宠桥气泡读同一派生集。
+机制、Config 项与投递面的唯一权威见 `05` §4。
 
 ---
 
@@ -248,37 +264,17 @@ CLI server 只做参数校验与分发，不提供任意 service/route 透传；
 
 **核心客户端通道**：`GET /api/schedule-core?weekStart=YYYY-MM-DD`（snapshot：revision/global/weekStart/termWeek/today/entries/tasks）+ `POST`（op 分发，同服务方法；含 `op=setCategories`（参数 `categories`，返回更新后的 getMeta）及本格式 export/import）。插件数据无推送通道，客户端靠 20 s revision 轮询；面板外的批量写入面（设置卡导入、来源适配器）在完成后派发同窗 `schedule:data-changed` window 事件（契约归 `client.core.js`），挂载中的日程视图立即重拉，未挂载的靠挂载时取数。
 
-**北航来源插件**：CLI 命名空间 `schedule buaa sync`；客户端通道 `GET/POST /api/buaa-schedule`
-（学号、SPOC 开关、同步）。教务的 `getMyScheduleDetail.do` 一次返回整学期课表且每个格自带星期/时间/周次，
-所以课表同步没有窗口、没有分页：一次登录 + 两个请求（课表、考试），课表按
-`replaceSourceEntries` 对账锁定的课程与考试条目，周次直接取教务给的值并转换为日期，不外推；考试任务同时保留。学期码由用户填的学期起始日期
-（第一周周一，归核心设置页所有）推导，`termCode={Y-1}-{Y}-3` 为 7–8 月的暑期学期。
-同一登录接着读取 SPOC（智学北航）当前学期作业：分页取回后，未提交作业按「课程 + 作业名」对账为
-`homework` 任务并更新 `due`，已提交作业不生成待办；删除只限 `source='spoc'` 且不早于学期起点。
-SPOC 失败只写入 `sourceState.buaa.spocError` 并作为警告返回，不影响课表/考试。SPOC 会话（token + jar）
-仅存 `host/spoc.js` 的进程内存，供 30 分钟 `ctx.timer.interval` 轮询；宿主重启后需再手动同步一次，
-关闭设置卡开关会清空会话。设置卡只填学号、密码与 SPOC 开关，不重复学期起点输入。
+**北航来源插件**：CLI 命名空间 `schedule buaa sync`；客户端通道 `GET/POST /api/buaa-schedule`。
+一次手动同步完成：教务整学期课表/考试快照（`replaceSourceEntries`）→ 博雅已选课程独立快照 →
+SPOC 作业对账 + iclass 签到会话建立。`sourceState.buaa` 字段清单、各端同步机制、学期码推导、
+密码输入与内存会话约束的唯一权威见 [11 · 来源适配器契约](11-source-plugins.md)。
 
-同一手动同步还会建立 iclass 远程签到会话（userId + sessionId，仅存 `host/signin.js` 的进程内存）。
-当天北航教学条目的编辑器渲染核心 `schedule.entry.actions` 子槽位，由 `client.signin.js` 提供
-「远程签到」按钮。宿主只接受已存条目：校验当天、`source='buaa'` 与 `teaching:` 来源键后，读取
-当天 iclass 课表，按归一化课程名与北京时间起止匹配排课行；已签到直接返回，客户端不能指定任意课程 id。
-签到失败只写入 `sourceState.buaa.signinError`，不影响导入。宿主重启或 iclass 会话失效后需再手动同步一次。
-`sourceState.buaa = { buaaId, termCode, spocEnabled, spocTermCode, spocLastSyncAt, spocError, signinError }` 仅供显示。
-密码只经 `--password-stdin` 或 `--password-env` 进入当次调用，不作为普通命令行参数。
+**二游前瞻来源插件**：客户端通道 `GET/POST /api/gacha-schedule`；CLI 命名空间、子命令清单、
+对账与锁定规则、`sourceState.gacha` 的唯一权威见 [12 · 二游前瞻来源](12-gacha-preview.md)。
 
-**二游前瞻来源插件**：CLI 命名空间 `schedule gacha list|refresh|posts|apply-official|watch`；
-客户端通道 `GET/POST /api/gacha-schedule`（设置卡状态、六款游戏开关、立即刷新）。读取
-gacha-calendar 服务（B 站采集/解析/推算在服务端）的格式化结果，为原神、崩坏：星穹铁道、绝区零、鸣潮、明日方舟：终末地、异环各维护
-前瞻直播条目（推算 `lock=false`，官方明确时刻 `lock=true`）；版本更新只在来源卡显示。条目带来源归属，只删改本源条目，不触碰其他来源或用户手建日程。`sourceState.gacha` 存上次公告元数据、服务计划缓存、开关与周检登记；
-后台每 6 小时刷新（`ctx.timer`，缺失时只停自动刷新，命令与设置卡仍可用）。开启 `watch` 需要
-当前会话 id（`--session`、`SCHEDULE_SESSION_ID` 或 `DSH_SESSION_ID`）来登记自动化周检；`watch --no-enabled` 关闭无需 id。
-
-**Agent 知识入口分层**：核心 `systemPrompt` 只保留当前教学周/起点、`schedule` CLI 入口与安全底线；
-`.dsh/skills/schedule/SKILL.md` 只教如何发现 CLI 并保留跨命令行为底线（帮助分层、guide、
-不额外写入、锁定与时间语义），不复制参数、回执或冲突重试细节。各来源 bundle 只在自身启用时注入自己的 prompt 与 CLI 命名空间：北航负责导入
-前提、密码输入和快照回执；二游负责刷新、官方校正和周检。参数以 `schedule <命令> --help` 为准，
-开发文档不作为日常操作前置。职责与验收见 [06 · 工作 Agent 的知识边界](06-tool-and-agent.md#0-工作-agent-的知识边界)。
+**Agent 知识入口分层**：核心 `systemPrompt` 只保留当前教学周/起点、`schedule` CLI 入口与安全底线，
+来源知识由各来源 bundle 在自身启用时注入自己的 prompt 与 CLI 命名空间。
+分层边界与"不应承载"清单的唯一权威见 [06 §0 · 工作 Agent 的知识边界](06-tool-and-agent.md#0-工作-agent-的知识边界)。
 
 ---
 
@@ -287,7 +283,7 @@ gacha-calendar 服务（B 站采集/解析/推算在服务端）的格式化结�
 ### 6.1 依赖声明
 
 - **宿主共享包只能走 `peerDependencies`**（`@deepseek-ai/*`、`zod`）：树外 `link:` 安装的 bundle 由 `routeLinked` 按 peer 名拦截映射到宿主实例；写进 `dependencies` 激活即 `ERR_MODULE_NOT_FOUND`。
-- **client 半**：apply 里读到的每个 `ctx.*` 服务必须出现在 client 导出的 `inject` 数组——runner 守卫直接拒绝未声明访问（`cannot get property "X" without inject`）。当前声明：`slots/locale/remote/remote.session/uiWorkspace/timer`。
+- **client 半**：apply 里读到的每个 `ctx.*` 服务必须出现在 client 导出的 `inject` 数组——runner 守卫直接拒绝未声明访问（`cannot get property "X" without inject`）。当前声明：核心 `slots/locale/remote/remote.session/uiWorkspace/timer`，来源插件另加 `scheduleShared`（核心共享注入的 `/api` 客户端与可释放 timer，见 `client.js`）。
 - **host 半**：见 §4.3。
 - **跨 bundle**：来源插件只通过 `inject` 拿到 `scheduleCore` / `scheduleCommands`，不 import
   核心包的内部文件；核心也不 import 来源包。共享的时间/日期纯函数在两侧各自持有（来源侧
@@ -295,7 +291,7 @@ gacha-calendar 服务（B 站采集/解析/推算在服务端）的格式化结�
 
 ### 6.2 分块加载顺序
 
-`require.async('./client.<name>.js')` 是 `CLIENT_CHUNK` 协议；**同步 require 不会按需物化包内分块**（不在注册依赖图里，未物化即抛 `missed the module table`）。入口 `client.js` 的 `require.async` 顺序就是依赖序：core 先物化，叶分块先于引用它们的分块。新增分块遵守 `client.<name>.js` 命名并在入口登记。
+`require.async('./client.<name>.js')` 是 `CLIENT_CHUNK` 协议；**同步 require 不会按需物化包内分块**（不在注册依赖图里，未物化即抛 `missed the module table`）。入口 `client.js` 的 `require.async` 顺序就是依赖序：core 先物化，叶分块先于引用它们的分块。新增分块遵守 `client.<name>.js` 命名并在入口登记。用户侧更新后的分块缓存坑（须重启宿主并强刷页面）见 `03`。
 
 ### 6.3 槽位注册
 
@@ -308,88 +304,3 @@ gacha-calendar 服务（B 站采集/解析/推算在服务端）的格式化结�
 - 无参命令**整个省略 `input`**（`input: { hint: '' }` 抛 "input hint must not be empty"）。
 - API 查询参数做 nullish 与格式校验（双端），防止 `"undefined"` 字符串污染快照字段（2026-10-18 aN-NaN 事故链）。
 - CSS shell 使用 `--dsw-*` token；唯一业务配色例外为配置类别的 `#RRGGBB` accent；圆角/阴影走 token 刻度；locale zh/en 双语强制。
-
----
-
-## 7. 旧实现迁移结论（2026-10-19 逐条核对完毕，2026-10-20 旧代码已删除）
-
-旧 Electron 版源码（`electron/`、`backend/`、`frontend/` 与根级构建脚本）曾作为意图参照，**已于
-2026-10-20 全部移除**，考古请看 git 历史。逐函数原子功能枚举（约 330 条）的判定结论保留如下：
-
-**已迁移（含等价重设计）**：周视图全部交互（拖选/幽灵/拖动/缩放/undo-redo/条目锁/4–28 轴/
-任意锚点窗口/回今天/键盘）、快速跳转小日历 + 重要度色点、批量新建日程（BatchEditor、
-host `batchCreateEntries`）、任务筛选/排序/统计/进度环/即将到期条、条目与任务编辑器
-（含删除确认——核对时补上的最后缺口）、冲突检测（内置到全部写路径，替代独立接口）、
-教务同步（SSO 登录、整学期课表一次拉取、考试、周次归一化、整份替换）、
-提醒派发（任务截止/条目统一派生 + 页面 Web Notification/toast + 可选桌宠气泡，作业/考试/其他任务与条目提前量）、
-剪贴板队列（语义改为"交给 Agent 落库"）、设置页（学号/学期起点/同步/导入导出/清空）。
-
-**明确不迁移**（依据 §2 R 决策，勿"顺手恢复"）：Electron 托盘/悬浮窗/窗口控制、cpolar 与
-手机端、Flask/JWT/静态托管、自有 LLM key 管理与测试连接、`--primary-color` 主题体系与深色
-模式自有样式（DSH token 覆盖）、条目逐条任意 hex 颜色（当前允许类别级配置，见 §3.3）、`Task.urgency`、只物化未来
-7 天的截断导入、精力周期、自动排期/休息条目/由任务生成条目、语音/图片 OCR、
-SmartInput 前端 LLM 解析（Agent 会话 + 剪贴板队列替代）、读接口删过期任务的副作用
-（已知缺陷，不修）、独立导入条目编辑路径（统一到普通条目 CRUD）、
-同步成功后自动刷新课表的颜色联动（完成态只改渲染不改数据）。
-
-**延后项**（有真实价值，按需立项）：常驻徽标见 `09` §4。桥侧拖拽收纳已落地（`09` §2.3，
-2026-10-22；图片与确认即会话 2026-10-23）：文本/图片拖到桌宠 → 核心内存暂存 → 点「确认」
-直接新建 Agent 会话，Agent 在写入前再列出拟变更条目等用户确认。
-页面提醒已落地（`client.notify.js`，2026-10-21）：30s 轮询 + Web Notification，未授权时页面内 toast；
-条目与任务共用同一派生集。页面关闭后的系统级通知仍取决于桌宠桥或浏览器能力。
-
-旧实现的已知缺陷清单（时区混存、日期窗口 +1 天、读接口带删除副作用等）在迁移中已全部
-修掉；如需考古看 git 历史里的 `07-migration-map.md`。
-
-**二轮 subagent 函数级复审的收敛结论（2026-10-19，判定完毕勿重开）**：
-- M1 考试两级提醒（提前 1 天 + 当天）**有意收敛为单档**提前量，Config 可调（R6 决策：提醒通道单次投递，两档由 Config 配多任务等价实现）。
-- M6 考试接口的**结束时间不进 `due`**：任务模型只认截止时刻，`endTime` 写进备注（`结束：15:20`），
-  不另造字段。
-- M8 教务请求**不带 Referer**：当前实测可用（问题 1 修复后 302 链路通）；若日后教务加校验，
-  再按浏览器实测补。
-- M10 旧版 urgency/80–240 分钟折叠算法**随 R1 废弃**（urgency 字段不迁）。
-- M11 任务占用时段**不参与冲突检测**（随 R5：任务非日程块）。
-- M12 多设备 Cookie 冲突取 **last-wins**（比旧版的保留策略更符合会话语义）。
-- client 侧：帮助弹窗与「安全与隐私」说明卡**有意不做**（DSH 无对应挂载位，内容并入命令
-  hint）；周末表头日期变蓝**忽略**（token 体系无该语义色，日期蓝由 is-today 承担）。
-- 二轮顺手修复：考试同步去重键宽化为去空格「考试」后缀比对；条目默认 taskType=other 兜底。
-- **考试同步口径（2026-10-20 真实数据校正）**：`exams.do` 实测字段是
-  `courseName/examDate/startTime/endTime/examPlace/examSeatNo`（`examDate` 带 ` 00:00:00` 后缀），
-  早期按旧接口猜的 `kcmc/ksrq/kssj` 全错。更重要的是**同一门课一学期可能有两场考试**（期中 +
-  期末），所以去重键是「课程名 + 考试日期」而非课程名，否则两场会合成一条。删除范围限定为
-  本源创建且日期不早于学期起点，用户手建的同类任务只校正 `due`。
-- **教务同步改版（2026-10-20）**：改用 `getMyScheduleDetail.do?type=term` 一次拉整学期
-  （每格自带星期/时间/周次），因此**取消了**逐日抓取窗口（`start_day`/`days`）、`/buaa-sync`
-  命令、`checkSession`/`clearSyncSession` 与 30 分钟 SSO 会话缓存、`ctx.jobs` 后台作业以及
-  新旧两种解析格式并存——一并删除，不做兼容。教师姓名、学分、课程号等日历不消费的字段在解析时
-  直接丢弃。教学安排按实际周次生成带日期的普通条目，写入走 `replaceSourceEntries`（完整来源快照），学期码由学期起点推导
-  并支持暑期学期 `-3`。学期起点输入只在核心设置页保留一处。2026-10-22 新增的 SPOC 会话只存进程内存
-  （不跨调用/重启复用密码，也不落盘），与当年取消的跨调用 SSO 缓存不是同一机制。
-
----
-
-## 8. 验收状态（2026-10-21）
-
-- **插件拆分（本轮）**：核心 / 北航来源适配器 / 二游前瞻来源 / 桌宠桥四个 bundle，依赖方向为
-  核心 ← 北航、核心 ← 二游前瞻、核心 ← 桥。核心不再包含 SSO、教务同步、旧库导入或 `buaaId`/`termCode`
-  业务逻辑；北航与二游前瞻都通过 `inject: ['scheduleCore']` 写入同一服务。
-- **UI 意图对齐返工（`10`）已完成**：P2–P8 在 scratch web 宿主经浏览器自动化逐项验证；P1（设置页
-  `inject: share`）随后在**真实桌面宿主**验证通过（应用内设置 → 日程设置卡渲染）。
-- **真实桌面宿主（profile `…\.desktop-build\development\home\profiles\desktop`，`link:` 安装）**：
-  拆分后需重新安装 `@buaaer/dsh-schedule-buaa` 并重启；二游前瞻为新 bundle，同样需安装后重启；
-  核心与桥仍为 link 安装。
-- **未验证**（后续按需）：键盘快捷键手感、BUAA 同步全流程（需真实学号密码）、提醒投递与
-  桥气泡的真机触发（任务/条目两类）、明暗双主题逐页核对。
-- **二轮修订（2026-10-19 深夜，`10` §6）**：真机实测 8+3 问题全部修复并在 scratch 宿主逐项
-  验证通过——SSO 401、网格对齐、跨列拖、拖后误点击、幽灵、跳转小日历、剪贴板并入 tab、
-  批量新建、中性色提亮、Windows 风格交互模型（右键建幽灵/双击编辑/框选/Del/整批 undo）。
-  注意客户端分块缓存三重坑（`10` §4）：用户侧更新后须重启宿主并强刷页面。
-- 收尾（2026-10-20 完成）：旧实现目录（`electron/ backend/ frontend/`）与根级旧脚本已全部删除，
-  根 `package.json` 精简为仓库元信息（原 electron-builder/cpolar 配置随旧实现作废）；
-  根 README 已更新。（`/buaa-import` 与 `scripts/export-legacy-db.mjs` 更早已移除，旧库迁移通道关闭。）
-  仓库现在只有 `docs/`、`dsh-plugin/`、`README.md`、`package.json` 四项。
-- **提醒扩展（2026-10-21）**：`host/schedule-reminders.js` 纯函数覆盖条目派生
-  （当前用例以测试文件为准）；桥按 `kind` 分支，任务可气泡完成。真机触发仍未验证。
-- **二游前瞻（2026-10-21）**：新增第四个 bundle `@lidozs55/dsh-schedule-gacha`
-  （`12`），同样只依赖 `scheduleCore`；单测 16 项全绿，六款游戏真实接口冒烟全部 `ok`。
-  它只维护本来源的前瞻条目；版本更新保留在来源卡，不触碰其他来源。

@@ -38,9 +38,11 @@
 | `index.js` | host 入口：注册 commands/api、首次 20 s 刷新、每 6 h 定时刷新、`systemPrompt` 段落 |
 | `host/games.js` | 六款游戏的 id/名称与条目归属标记；mid、标题正则、版本节奏与推算规则全在服务端 |
 | `host/calendarApi.js` | gacha-calendar 服务 HTTP 客户端（games / posts / overrides） |
+| `host/http.js` | 两个 host 侧 HTTP 客户端共用的请求管线：20s 超时、AbortSignal 桥接、传输失败分类（aborted / timeout / network） |
+| `host/bili.js` | `fetch` 的 B 站官方只读接口转发：游戏 → 官方账号（UID/直播间）映射、浏览器请求头、风控识别、响应裁剪 |
 | `host/service.js` | 服务视图 → 插件 plan 映射（UTC RFC3339 → `+08:00` ISO）、条目对账、官方校正转发 |
-| `host/state.js` | `SOURCE_ID = 'gacha'`，`sourceState` 归一化 |
-| `host/commands.js` | CLI 命名空间 `schedule gacha list/refresh/posts/apply-official/watch` + guide |
+| `host/state.js` | `sourceState` 结构与归一化（`SOURCE_ID = 'gacha'` 定义在 `host/games.js`） |
+| `host/commands.js` | CLI 命名空间 `schedule gacha list/refresh/posts/fetch/apply-official/watch` + guide |
 | `host/api.js` | `/api/gacha-schedule`（设置卡读状态、开关、立即刷新） |
 | `client.js` / `client.settings.js` | 注册 `schedule.settings.blocks` 卡片，复用核心 `bsch-*` 样式 |
 | `test/` | 离线映射/对账/校正转发、周检与 CLI `posts` 测试（不联网） |
@@ -48,8 +50,8 @@
 服务端点与配置：默认 `https://gacha.modenc.top`；可用
 `globalThis.__GACHA_CALENDAR__ = { baseUrl, token }` 覆写（`token` 为管理令牌，
 官方校正转发需要）。公告解析规则、推算优先级与校准数据的服务端实现见
-gacha-calendar 仓库 `backend/internal/parse`（测试覆盖六种公告格式、滚动逻辑、
-视频回推与 2026-10-21 六游戏实抓快照）。
+gacha-calendar 仓库 `backend/internal/parse`（测试覆盖六种公告格式、滚动逻辑与
+视频回推）。
 
 ---
 
@@ -118,7 +120,8 @@ Agent 官方校正是**转发**：`schedule gacha apply-official` 本地校验�
 |---|---|---|
 | `list` | — | 六款游戏的状态、版本、更新/前瞻时间、依据、公告链接 |
 | `refresh` | `--game <id>`（可省略） | 从服务拉取最新格式化状态（服务自身另每 6 h 采集一次） |
-| `posts` | `--game <id>`、`--page`、`--page-size`、`--type` | 分页读取服务保存的原始公告/动态/视频（标题、UTC 发布时间、原文入口），供核对 |
+| `posts` | `--game <id>`、`--page`、`--page-size`、`--type` | 分页读取服务保存的原始公告/动态/视频（标题、UTC 发布时间、原文入口），供交叉印证 |
+| `fetch` | `--game <id>` + `--kind articles\|article\|dynamics\|videos\|live`（可选 `--id`、`--keywords`、`--page`） | 宿主进程代理读取 B 站官方账号原文：专栏列表/正文、动态、前瞻视频、直播间信息与定档公告；账号映射与请求头内置，动态被风控（`code=risk_control`）时改用 videos/live 兜底 |
 | `apply-official` | `--game <id>` + `--update-start` / `--preview-start`（`+08:00` ISO）+ 可选 `--update-end`、`--preview-end`、`--version`、`--note` | 校验后转发到服务覆盖层；`--clear` 清除覆盖回到公告规则 |
 | `watch` | `--session <id>`（开启）；`--no-enabled` 取消（无需会话 id） | 用平台「自动化任务」能力登记/取消每周三 10:00 的 Agent 核对 |
 
@@ -129,11 +132,17 @@ Agent 官方校正是**转发**：`schedule gacha apply-official` 本地校验�
 - 校验：`update_end > update_start`、`preview_end > preview_start`、`preview_start < update_start`。
 
 `watch` 使用平台「自动化任务」能力；未启用时命令返回降级说明，6 小时后台刷新与
-`needsRefresh()` 照常工作。周检 prompt 明确要求先 `list`、再逛官方账号、最后按游戏写回。
-会话 id 来自 `--session`、`SCHEDULE_SESSION_ID` 或 `DSH_SESSION_ID`；设置卡生成的 prompt 会注入实际 session id。
+`needsRefresh()` 照常工作。周检 prompt 与设置卡的核对 prompt 同一原则：prompt 只携带任务
+本身与 `schedule gacha --help` 入口，账号映射、接口与风控兜底全部内置在 `fetch` 命令后
+（`host/bili.js`），官方账号 UID/直播间与端点不出现在任何指导文本中，避免多处重复维护；
+且只核对尚未发生的未来事件，已开始或已结束的事件一律忽略。会话 id 来自 `--session`、
+`SCHEDULE_SESSION_ID` 或 `DSH_SESSION_ID`。是否开启周检由用户决定：插件指导文本不写死
+「让 Agent 登记定时任务」的指令。
 
-`index.js` 给 `systemPrompt` 注入来源说明；查公告与官方时间写回优先使用 `schedule gacha`，
-读原文用 `schedule gacha posts`，不要另建重复条目。普通条目编辑/删除仍可用，来源刷新可能覆盖这些修改。
+`index.js` 给 `systemPrompt` 注入来源说明；核对官方时间用 `schedule gacha fetch`
+（`fetch` 由宿主进程发起请求，Agent 沙箱不直连 B 站，也就不会触发沙箱权限审批），
+读服务端缓存原文用 `schedule gacha posts`，不要另建重复条目。普通条目编辑/删除仍可用，
+来源刷新可能覆盖这些修改。
 
 ---
 
@@ -143,7 +152,9 @@ Agent 官方校正是**转发**：`schedule gacha apply-official` 本地校验�
 
 - 六行游戏开关 + 每行的版本/更新/前瞻摘要，推算值前加 `≈`。
 - “立即刷新”从服务拉取格式化结果；卡片轮询 `refreshing`，结束后广播 `schedule:data-changed`。
-- "让 Agent 核对"创建普通会话并投递核对 prompt；失败信息就地展示。
+- "让 Agent 核对"创建普通会话并投递核对 prompt；prompt 只含任务描述与
+  `schedule gacha --help` 入口（面向用户、足够精确），核对细节由 CLI 帮助承接；
+  只考虑未来事件，也不指示 Agent 开启周检；失败信息就地展示。
 
 ---
 
@@ -156,19 +167,10 @@ node --test dsh-plugin/dsh-schedule-gacha/test/*.test.mjs
 ```
 
 覆盖服务视图映射（UTC → `+08:00`）、对账、锁定与可编辑字段保留、
-服务中断保底、覆盖转发与失败面。公告解析与推算规则的服务端测试见
-gacha-calendar 仓库（`go test ./...`，含 2026-10-21 六游戏实抓校准快照）。
-
-服务端实抓快照（2026-10-21，六款全部 `ok`，与插件时代输出一致）：
-
-| 游戏 | 推算下一版本 | 更新时间 | 前瞻时间 | 更新依据 |
-|---|---|---|---|---|
-| 原神 | 7.2 | 2026-11-04 06:00 | 2026-10-23 19:30 | 42 天节奏 |
-| 崩铁 | 4.7 | 2026-11-11 06:00 | 2026-10-30 19:30 | 版本结束时间 |
-| 绝区零 | 3.4 | 2026-12-02 06:00 | 2026-11-20 19:30 | 版本结束时间 + 滚动 |
-| 鸣潮 | 3.8 | 2026-11-11 04:00 | 2026-10-30 19:30 | 42 天节奏 |
-| 终末地 | — | 2026-11-12 06:00 | 2026-10-30 19:30 | 公告阶段内容更新日 |
-| 异环 | 1.5 | 2026-11-05 06:00 | 2026-10-23 19:30 | 42 天节奏 |
+服务中断保底、覆盖转发与失败面；`test/bili.test.mjs` 用 stub fetch 覆盖 `fetch` 的
+URL/请求头构造、风控映射、直播间公告解析与 HTML 剥离（不联网）。
+公告解析与推算规则的服务端测试见
+gacha-calendar 仓库（`go test ./...`）。
 
 ---
 
@@ -178,6 +180,7 @@ gacha-calendar 仓库（`go test ./...`，含 2026-10-21 六游戏实抓校准�
   不写猜测值；恢复后自动追上。需完全离线时回退旧版本插件。
 - **终末地没有数值版本号**：条目只写"版本更新"；前瞻视频按标题关键词匹配。
 - **B 站风控会变**：服务端的端点/`Referer`/限流阈值可能无预告调整，采集失败只影响
-  服务端更新，不影响插件已有条目。
+  服务端更新，不影响插件已有条目；`fetch` 的动态接口常被风控（`code=risk_control`），
+  CLI 帮助与错误信息都指向 videos/live 兜底。
 - **前瞻日期在官方公布前只能推算**：卡片与描述都会标注"（推算）"，周检 Agent
   负责在有官方预告后写回。预告通常集中在周三，故周检定在周三 10:00。

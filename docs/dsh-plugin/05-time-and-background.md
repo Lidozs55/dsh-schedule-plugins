@@ -2,7 +2,7 @@
 
 > 本项目的核心需求之一就是"到点提醒"和"跑一会儿的同步"。DSH 侧有三层机制，别用错：
 > **进程内定时器**（`ctx.timer`）→ **可观察的后台作业**（`ctx.jobs`）→ **平台自动化任务**（按需；提醒见 §4）。
-> 签名实测于本机 `0.2.0-rc.2`；`ScheduleRecord` 等类型来自官方文档与包 README。
+> 签名核对方式与 DSH 版本基线见本目录 `README.md`（运行时是权威）。
 
 ---
 
@@ -11,9 +11,9 @@
 | 需求 | 用什么 | 为什么 |
 |---|---|---|
 | 防抖搜索、节流刷新、界面倒计时、"5 分钟后重试一次" | `ctx.timer` | 进程内、随插件卸载自动清理 |
-| 页面存活期间刷新 SPOC 作业截止时间 | `ctx.timer` + 北航来源插件的内存会话 | 每 30 分钟一次；关闭开关、无会话或无学期起点时直接跳过，不接触密码 |
+| 来源侧周期刷新（如作业截止时间会变） | `ctx.timer` + 来源插件的**进程内存会话** | 示例见 `11` §3（北航 SPOC 30 分钟轮询）；不接触密码、不落盘 |
 | 跑几十秒的活儿：抓取远端数据、批量导出、OCR | `ctx.jobs` | 有 id、有状态、有输出环、可取消、能让 UI 流式看 |
-| 页面内提醒（任务/条目） | 核心 `host/reminders.js` 派生 + `client.notify.js` 30s 轮询 + Web Notification | 页面打开时每 30s 检查，Web Notification/页面内 toast 呈现 |
+| 页面内提醒（任务/条目） | 核心 `host/reminders.js` 派生 + `client.notify.js` 30s 轮询 + Web Notification | 机制见 §4 |
 | 让 Agent 按周期主动干活（如二游周检） | 平台「自动化任务」能力 | 绑定 Session、消耗 Agent 轮次 |
 | 让 Agent 因为定时事件主动干活 | `agent.followup()` | 会唤醒 agent；`agent.inject()` **不会** |
 
@@ -49,23 +49,11 @@ export function apply(ctx) {
 > `cannot get property "timer" without inject`（本仓库 gacha 插件曾踩过）。
 > 客户端 bundle 的 `dsh.client.inject` 同理要列 `timer`。
 
-**北航 SPOC 作业轮询**（`dsh-schedule-buaa/index.js`）：`inject` 已含 `'timer'`，
-每 30 分钟调用一次 `runSpocPoll()`：
-
-```js
-ctx.effect(() => ctx.timer.interval(() => {
-  void runSpocPoll({ service, spoc })
-}, 30 * 60_000), 'buaa-schedule: SPOC poll')
-```
-
-它只在「开关未关闭 + 内存里已有会话 + 已配置学期起点」时发请求；没有密码，也没有
-`ctx.jobs`。会话过期时 `spoc.js` 清掉内存会话并记录 `spocError`，轮询自然停止，
-设置卡提示用户再手动同步一次。这样既满足作业截止时间会变的需求，又不把密码或
-token 写进磁盘。
-
-iclass 远程签到的 `userId`/`sessionId` 也只在手动同步时建立，存 `host/signin.js` 的进程内存，
-不做周期轮询。用户点击条目上的「远程签到」时才读当天 iclass 课表并提交；宿主重启后同样
-需要再手动同步一次。
+**来源侧周期刷新示例**：北航 SPOC 作业截止时间的 30 分钟轮询即用
+`ctx.timer.interval(() => void runSpocPoll(...), 30 * 60_000)`——只在「开关未关 +
+进程内存里有会话」时发请求，没有密码、不用 `ctx.jobs`；会话过期或宿主重启后轮询
+自然变 no-op，等用户再手动同步一次。完整机制（内存会话的获取/清除/代次防复活）
+见 `11` §3。
 
 ---
 

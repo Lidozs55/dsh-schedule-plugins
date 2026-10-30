@@ -23,7 +23,7 @@
 | Node.js | `^22.19.0 \|\| >=24.0.0` | DSH 根清单的 `engines` |
 | pnpm | 11.7.0 | 只在 DSH checkout / profile 安装链路里需要；**不要**在 profile 目录手动跑 |
 | 构建工具 | 手写 bundle **不需要** | `index.js` / `client.js` 就是产物；只有编译型源码才需要 Client 构建链 |
-| DSH 版本 | 本机 checkout `@deepseek-ai/dsh-root@0.2.0-rc.2` | DSH 处于 developer preview，**随时会有破坏性变更**；升级后必须重新 inspect 核对 |
+| DSH 版本 | 见本目录 `README.md`「事实基线与核对方式」（版本事实唯一权威处） | DSH 处于 developer preview，**随时会有破坏性变更**；升级后必须重新 inspect 核对 |
 
 环境变量（profile 启动的 Harness 里才有）：`DSH_PROFILE`（profile 名）、`DSH_PROFILE_DIR`（其目录，`node_modules` 只放 profile 安装的 bundle）。这两个值在**没有** profile 启动的 Harness 里不存在——不要据此猜路径。
 
@@ -37,7 +37,7 @@ DSH_HOME=<空临时目录> dsh web
 
 # 2) 另开终端，同一 DSH_HOME 下把 bundle 链接安装进 web profile
 DSH_HOME=<同上> dsh plugin --profile web add <dsh-plugin/dsh-schedule 绝对路径>
-DSH_HOME=<同上> dsh plugin --profile web add <dsh-plugin/buaa-schedule 绝对路径>
+DSH_HOME=<同上> dsh plugin --profile web add <dsh-plugin/dsh-schedule-buaa 绝对路径>
 ```
 
 - 先装核心再装来源适配器；来源插件 `inject: ['scheduleCore']`，核心缺失时会 park。
@@ -91,9 +91,9 @@ plugin_manager { action: "install_bundle", target: "<bundle 目录绝对路径>"
 
 其它已知语义：
 
-- 新装 bundle 可能经 HMR 直接激活。
+- 新装 bundle 可能经 HMR 直接激活（插件代码/配置的热更新由 `@deepseek-ai/dsh-hmr` 协调；`app-boot/config-reload` 事件表示 profile patch 已对齐到运行中的 Loader 树）。
 - **替换**已安装的包必须重启才会加载新的 JS 模块代。
-- **slot id 没变，不能推断浏览器代码已更新**——浏览器产物是独立的一代，改了 Client 半要重建并刷新页面。
+- **slot id 没变，不能推断浏览器代码已更新**——浏览器产物是独立的一代，改了 Client 半要重建并刷新页面。浏览器半的重建由 Client 构建链负责：只有 `pnpm run dev:web` 正在运行时才会自动重建并热替换，否则改完要重建 Web 产物并刷新页面。不要另起一个服务器来"验收"自己的改动——那验证的不是用户正在看的那个 GUI。
 - 新增的 row 用 `cordis_inspect_query`（`Config.listConfigs` 过滤 `name`）确认，比翻插件列表更直接。
 
 ---

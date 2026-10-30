@@ -1,8 +1,10 @@
 # 06 · 工具与 Agent 交互规范
 
 > 适用场景：把"来源导入、任务增删改查、日程生成、提醒设置"这类操作交给 Agent 调用。
-> **本项目当前的 Agent 入口是 `schedule` CLI，不再注册常驻 tool schema。** 下面的平台
-> `defineTool` / `ToolDefinition` 契约保留给其它 DSH 插件参考；本项目的命令定义见 §1。
+> **本项目当前的 Agent 入口是 `schedule` CLI，不注册常驻 tool schema**；命令定义契约见 §1。
+> 平台工具 API（`defineTool` / `ToolDefinition`）本项目已不使用，官方 cookbook 已覆盖
+> （DSH 文档 `docs/cookbook/adding-a-tool.zh.md` 与 `docs/user/develop/basic/tool.zh.md`），
+> 本文不再复述；§3、§5 仍保留与工具生态相关的两条平台参考（扩展点强弱、工具卡片槽位）。
 
 ---
 
@@ -74,6 +76,10 @@ registry.register({
   `ctx.scheduleCommands.register(...)` 并返回 disposer；核心卸载前它们随 `ctx.effect` 注销。
 - **选项**：`string|boolean|number|integer|json|array`，可 `required`/`repeated`/`enum`/`default`/`hidden`。
   `hidden` 只用于密码这类由全局 flag 注入、不能作为普通参数出现的字段。
+- **描述写法**（这些字是给模型看的）：summary/description 写清"做什么 + 什么时候用 +
+  什么时候不要用"，不要只重复名字；枚举值用 `enum` 而不是让模型猜字符串；必填标
+  `required`，可选参数说明省略时的行为；失败信息给**可据以行动的原因**（如"与条目
+  「编译原理」周三 10:00–11:30 冲突"），不是 `Error: failed`。
 - **分层帮助**：根帮助只列命令和指南；`schedule <命令> --help` 列子命令；叶子帮助列参数、示例、
   注意事项与通用选项。叶子命令必须提供 `run`；有子命令的组不能再提供 `run`。
 - **长教程**：用 `registry.registerGuide({ name, title, summary, body })`，正文是 Markdown。
@@ -97,118 +103,7 @@ registry.register({
 
 ---
 
-## 2. 平台工具 API（其它插件的可选参考）
-
-本项目不再使用下列 API 暴露日程能力；保留本节是因为来源之外的 DSH 插件仍可能需要工具。
-**不要**为了日程操作重新注册 `sched_*` 工具。
-
----
-
-## 3. 两种写法：`defineTool`（推荐）与原始 `ToolDefinition`
-
-**推荐**用第一方类型化助手 `defineTool`（来自 `@deepseek-ai/dsh-tools`）：参数用 `ValueSchemaSpec` DSL 写，`execute` 的 `args` 会按 schema 推导出类型，注册前 `defineTool` 会校验模型给的 `arguments`（类型、必填键、字面量约束、恰好命中一个分支的联合、嵌套值）。
-
-```ts
-import type { Context } from '@deepseek-ai/cordis'
-import { defineTool } from '@deepseek-ai/dsh-tools'
-
-export const inject = ['tools']
-
-export function apply(ctx: Context) {
-  ctx.tools.register(defineTool({
-    name: 'greet',
-    description: 'Greet someone by name.',
-    parameters: {
-      name: { type: 'string', required: true, description: 'The name to greet' },
-      limit: { type: 'number' },              // 不加 required 就是可选
-    },
-    output: {
-      schema: { type: 'string' },
-      render: (_args, value) => [{ type: 'text', text: value }],
-    },
-    async execute(args, exec) {
-      return `Hello, ${args.name}!`           // 只返回 canonical value
-    },
-  }))
-}
-```
-
-DSL 规则（官方）：`ValueSchemaSpec` 支持 `string` / `number` / `integer` / `boolean` / `null` / `array` / `object`，外加**只在作者侧存在**的 `json` 与 `oneOf`（必须恰好命中一个分支）；标量的 `enum`/`const` 值必须与节点类型相符；**显式对象节点必须声明 `additionalProperties: true | false`**，而每个工具隐式的参数根对象是开放属性映射，必填属性写 `required: true`。DSL 表达不了的约束（非空字符串、正数、跨字段规则）仍要自己检查。
-
-**另一种**是直接注册原始 JSON Schema 的 `ToolDefinition`（MCP 来源的工具就是这样到达的），此时输入校验由你自己负责。
-
-## 4. ToolDefinition：精确契约
-
-```ts
-export interface ToolSchema {          // 暴露给模型的部分
-  deferLoading?: true;
-  name: string;
-  description: string;
-  parameters: Record<string, unknown>; // JSON Schema
-}
-
-export interface ToolOutputDefinition {
-  readonly schema: JsonSchemaNode;
-  render(args: unknown, value: JsonValue): ContentBlock[];
-  presentationMeta?(args: unknown, value: JsonValue): JsonValue;
-}
-
-export interface ToolDefinition extends ToolSchema {
-  readonly output: ToolOutputDefinition;
-  execute(args: unknown, exec: ToolRunContext): Promise<unknown>;
-  projectContent?(exec: Readonly<ToolExecution>, result: Readonly<ToolExecutionResult>): ContentBlock[] | undefined;
-  finalizeContent?(exec: Readonly<ToolExecution>, result: Readonly<ToolExecutionResult>): ContentBlock[] | undefined;
-  timeoutMs?: number;
-  isConcurrencySafe?(args: unknown): boolean;
-  presentCall?(args: unknown): ToolCallView | undefined;
-  presentResult?(args: unknown, result: ToolResult): ToolResultView | undefined;
-}
-```
-
-`execute` 拿到的 `ToolRunContext` 在 `ToolExecution` 之上多两个方法：
-
-```ts
-export interface ToolRunContext extends ToolExecution {
-  deferContext(context: UserMessage): void;  // 把上下文推迟到之后注入
-  concludeTurn(): void;                      // 本步之后结束本轮
-}
-```
-
-其中 `ToolExecution` 至少带有 `callId`、`name`、`arguments`、可选的 `agent`、以及 **`signal: AbortSignal`**。
-
-要点：
-
-- **`output` 是必填的**。`execute` 的返回值会按 `output.schema` 校验并冻结，再由 `output.render(args, value)` 变成模型实际看到的内容块（`ContentBlock[]`）。canonical value **不会自动发给模型**：需要模型读取的 id、完整字段、冲突与逐项结果必须显式渲染。平台工具输出简短摘要 + 独立 JSON 文本块；不要只给摘要后让 Agent 读存储补明细，也不要把私有配置顺带序列化。**不要**从 `execute` 返回内容块。
-- 出错：**抛出异常或返回不符合 schema 的值都算 `isError`**。基础设施故障用抛；域内的"不受欢迎但正常"的结果（例如命令非零退出）应当放进 canonical value。参数不匹配抛 `ToolArgsError`（`INVALID_ARGS`），主体/后处理产出的非法值抛 `ToolOutputError`（`INVALID_TOOL_OUTPUT`）。
-- 定义注册后按只读借用：**不要**再改它的 schema 或替换回调；要热替换就先 dispose 拥有它的 effect，再注册新的。
-- 名字：保留名 `run_code` 不可用；同一层内重名失败；**scoped 注册会遮蔽全局同名工具**。
-- `deferLoading?: true` 表示把该工具定义推迟加载进模型上下文。
-- 注册：在 `ctx.effect` 中调用 `ctx.tools.register(defineTool(...))` 并返回 disposer。本项目不再用工具暴露日程能力；真实命令注册范例见 `dsh-plugin/dsh-schedule/host/commands.js`。不要复制历史单动词工具名、缺截止时间的任务示例或只渲染 id 的回执。原始 `ToolDefinition` 的 `parameters` 使用 JSON Schema 根对象，与上面 `defineTool` 的参数 DSL 不同。
-
-> `ContentBlock` 的具体变体请以安装包的 `lib/types/**/*.d.ts` 为准（`Config.listConfigs` 拿到 `packageDir` 后读取）。
-
----
-
-## 5. 描述与 schema 的写法要求（这些字是给模型看的）
-
-工具名、描述、参数 schema 会被投影成模型可见的 schema（`ctx.tools.schemas()` 只保留白名单字段，执行与展示回调不会外泄）。因此：
-
-- **名字**：平台工具用 `snake_case` 并带产品前缀避免与宿主工具撞名；`schedule` CLI 命令用 `kebab-case`。同族操作可以合并成一个命令 + 子命令（例如 `schedule entry create`），减少顶层入口。
-- **描述**：写清"做什么 + 什么时候用 + 什么时候不要用"。不要只重复名字。若工具有副作用（写库、改日程、发通知），明确说出来。
-- **参数**：
-  - 每个字段都要有 `description`；枚举值用 `enum` 而不是让模型猜字符串。
-  - 必填项放 `required`，可选参数给出省略时的行为。
-  - 嵌套结构越浅越好；能用扁平参数就不要用对象套对象。
-  - `additionalProperties: false` 让你的意图明确（若该版本校验器不支持，也仍建议写）。
-- **返回值**：返回结构化 JSON（id、受影响条数、冲突信息……），并在 `output.render` 中显式提供模型完成下一步所需的字段，而不是一句自然语言。失败时给出**可据以行动的原因**（例如"与条目「编译原理」周三 10:00–11:30 冲突"），而不是 `Error: failed`。
-- **超时与取消**：长任务设置 `timeoutMs`；在耗时循环里检查 `exec.signal.aborted`。
-- **要做到"后台跑"**：用 `ctx.jobs.start({ kind, label, owner: exec.agent, run })` 起一个作业，并让成功的分支返回结构化的句柄（例如 `{ kind: 'background', jobId }`）；**`ctx.jobs.start()` 发布 id 之后，用该 job 自己的取消信号，而不是 `exec.signal`**。PTC 模式（`run_code`）下绝不能让模型从人类可读文本里解析 jobId。
-- **要给 agent 留异步通知**：`agent.inject({ content, source: { kind: 'plugin', plugin: '<你的插件名>' } })` 追加持久上下文，**它不是唤醒**；`agent` 可能已被释放，记得 try/catch。
-- **并发**：`isConcurrencySafe` 只有返回**确切 `true`** 才会并行；其它情况（未声明、抛错、隐藏、非法）一律按独占调度。写同一个数据源的工具有意让它独占。
-
----
-
-## 6. 一个操作，两个调用者
+## 2. 一个操作，两个调用者
 
 用户既会点 UI，也会让 Agent 干活。**同一件事只实现一次**：
 
@@ -222,7 +117,7 @@ export interface ToolRunContext extends ToolExecution {
 
 ---
 
-## 7. 扩展点的强弱顺序（用最弱的那个）
+## 3. 扩展点的强弱顺序（用最弱的那个）
 
 由弱到强：
 
@@ -240,13 +135,12 @@ export interface ToolRunContext extends ToolExecution {
 | 让 agent 因为定时器/提醒而主动干活 | 定时器里调用 `agent.followup()`（会唤醒），不要用 `inject()` 等它自己醒 |
 | 观察工具最终结果 | 监听 `tools/result` |
 | 只要变换工具结果 | `tools/post-execute`（不要在这里做授权判断） |
-| 只看/改某次调用的展示卡片 | `presentCall` / `presentResult` |
 
 **不要**为了加/删工具而监听 `system-prompt/assemble`；**不要**用 `session/event` + 全量重扫来实现派生状态（用 `ctx.sessionProjections`）。
 
 ---
 
-## 8. 会话日志铁律
+## 4. 会话日志铁律
 
 **Session 日志是唯一真相**：模型看到的一切都必须能从已提交的会话事件重建（fork / resume / replay 都从日志派生）。插件内存只是派生缓存。
 
@@ -258,22 +152,12 @@ export interface ToolRunContext extends ToolExecution {
 
 ---
 
-## 9. 工具卡片的渲染（可选）
+## 5. 反模式清单
 
-Client 有一个按"线上工具名"分派的 keyed 槽位 `tool.call.toolview`：注册键就是工具名，用于给该工具的调用/结果画专门的卡片。**内建 Web Client 不消费 `presentCall` / `presentResult`**——它只认这个槽位；没注册就退化成通用行。若要做，先在已连接的页面上 inspect 该槽位的注册字段与 props，再来实现。
-
-`presentCall(args)` → `ToolCallView`、`presentResult(args, { content, isError, meta? })` → `ToolResultView` 供其它呈现面使用，二者必须是**纯函数**：不许 IO、不许读会话状态、不许用时钟或随机数。呈现在卡片里的格式**不得**进入 canonical value 或 Native 内容。`defineTool` 对展示路径只做**软校验**：参数非法或旧版本参数会让它返回 `undefined`（退回通用展示），而不是抛错。
-
-## 10. 反模式清单
-
-- ❌ 工具描述里写"处理各种事情"，参数全 `type: string`。
-- ❌ 一个工具里塞入互不相关的多个操作（可以合并同族操作，但不要合并无关操作）。
-- ❌ 把 UI 逻辑复制到工具里（或反之），两处逻辑漂移。
-- ❌ 让工具返回原始异常堆栈给模型（既有信息泄漏风险，也不可行动）。
-- ❌ 忽略 `exec.signal`，导致用户取消后仍在写库。
-- ❌ 声明 `isConcurrencySafe: () => true` 却写共享状态。
 - ❌ 为日程操作重新注册 `sched_*` 常驻工具 schema，而不是扩展 `schedule` CLI 命令树。
 - ❌ CLI server 提供通用 service/route 透传，或让 CLI 直接打开同一份数据库。
 - ❌ 把密码写成 `--password ***` 普通参数（会进入 shell 历史/进程列表）。
 - ❌ 把长教程塞进顶层 `--help` 或系统提示，而不是 `schedule guide` 按需加载。
 - ❌ 命令回执只给人类摘要，不返回模型下一步需要的完整 JSON（id、冲突、逐项结果）。
+
+（defineTool / 工具卡片渲染等平台工具 API 的规范见 DSH 官方 cookbook `docs/cookbook/adding-a-tool.zh.md`。）

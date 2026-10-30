@@ -1,12 +1,14 @@
 # 09 · vivarium 桥插件(`@lidozs55/dsh-schedule-bridge`)
 
-> **状态:已立项并落地设计 v2(2026-10-21;包版本 0.1.0)**,位于 `dsh-plugin/dsh-schedule-bridge/`(本仓库,
-> host-only bundle,无 client 半、无 UI)。v2 在 v1 的两条联动上扩展:提醒气泡统一覆盖任务截止/
-> 日程条目两类,任务状态改走基座 `tasks.report`(vivarium §4c);**2026-10-22 新增第三条:
-> 文本/图片拖给桌宠 → 核心待确认暂存 → 点「确认」直接新建 Agent 会话**(vivarium §4d,
-> 不解析、不 OCR、不调 LLM);**2026-10-23 新增第四条:拖放会话内的提问/审批中继到桌宠**
->(§2.4),并把写入确认规则统一为「有明确时间直接写入 / 推断时间用两选项是/否问题确认」。
-> v1 的边界(时序策略归核心、桥只做表面、读派生集为主且唯一写面是气泡「已完成」)不变。
+> **状态：已落地**，位于 `dsh-plugin/dsh-schedule-bridge/`(本仓库，host-only bundle，无 client 半、无 UI)。
+> 当前共**四条联动**：
+> ①提醒气泡——任务截止/日程条目两类，任务可在气泡上直接完成（§2.1）；
+> ②任务状态上报——走基座 `tasks.report`，只报事实（§2.2）；
+> ③文本/图片拖给桌宠 → 核心待确认暂存 → 点「确认」直接新建 Agent 会话（不解析、不 OCR、不调 LLM，§2.3）；
+> ④拖放会话内的提问/审批中继到桌宠并代答（§2.4）。
+> 变更史一句话：v1 只有提醒气泡与任务上报；v2（2026-10-21）起按上列顺序逐条扩展，并把写入确认
+> 统一为「有明确时间直接写入 / 推断时间用两选项是/否问题确认」。边界不变：**时序策略归核心、
+> 桥只做表面、读派生集为主，唯一任务写面是气泡「已完成」**。
 
 ---
 
@@ -14,32 +16,30 @@
 
 | 插件 | 拥有 | 不拥有 |
 |---|---|---|
-| 核心 `@lidozs55/dsh-schedule` | 数据(domain)、领域服务、`schedule` CLI、UI 面板、提醒子系统(提前量 Config、无状态 `upcomingReminders()` 派生集、页面 30s 轮询 + Web Notification/toast) | 桌宠概念;任何学校/导入来源 |
+| 核心 `@lidozs55/dsh-schedule` | 数据(domain)、领域服务、`schedule` CLI、UI 面板、提醒子系统(派生集与页面通知,见 `05` §4) | 桌宠概念;任何学校/导入来源 |
 | 来源适配器 `@buaaer/dsh-schedule-buaa` | 北航 SSO、整学期教务导入、`sourceState.buaa` | 日程数据副本;提醒策略;UI 面板 |
 | 桥 `@lidozs55/dsh-schedule-bridge` | 跨插件 UX:提醒→桌宠 notice 气泡(任务含「已完成」快捷动作,条目仅「知道了」)、任务状态上报(基座 `tasks` 状态面)、外部文本/图片→核心待确认暂存→点「确认」新建会话、拖放会话内的提问/审批中继到桌宠并代答 | 数据副本;提醒策略与时序真相;宠物语义(逾期担忧/清空庆祝的推导归基座);自然语言解析/OCR/LLM;UI |
 
-提醒的时序真相只有一个:核心 `service.upcomingReminders()` 纯派生,任务/条目两类同权。
-投递表面可以有多个,都读同一派生集:**页面通知**(核心 `client.notify.js`,30s 轮询 + Web
-Notification/页面内 toast)和**桌宠气泡**(桥,可选增强)。桥
+提醒的时序真相只有一个:核心 `service.upcomingReminders()` 纯派生,任务/条目两类同权(机制见 `05` §4)。
+投递表面可以有多个,都读同一派生集:**页面通知**(核心 `client.notify.js`)和**桌宠气泡**(桥,可选增强)。桥
 `inject: ['scheduleCore', 'vivarium']`,任一缺席则 cordis 把桥 park 掉,核心插件无感;来源适配器同理:`inject: ['scheduleCore', ...]`,卸载北航插件不影响
 已有任务/条目与提醒。
 
-## 2. v2 四条联动(已实现)
+## 2. 四条联动(已实现)
 
 ### 2.1 提醒气泡(notice)
 
-核心插件派生「提醒时刻」集合，只有任务与条目两类；教学安排、考试、会议都由普通条目路径派生，地点统一 `location`。考试条目走考试提前量，其他条目走 `eventLeadMinutes`；提前量只存核心 Config 一处。
-桥每 60s 读 `service.upcomingReminders()`（`kind: 'task'|'entry'` 与确定性 `key`），提醒时刻进入投递窗口即 `ctx.vivarium.notices.post`：
+提醒的派生机制(提前量 Config、`at−60s` 窗口、`key@at` 去重)唯一权威是 `05` §4;这里只记录**桥侧消费行为**:
 
-- `id = sched-rem-<key>`（任务键 `<taskId>`，条目键 `entry-<id>`）；重复 post 由 broker 去重。
-- 任务文案配「知道了」+「已完成」，后者调用 `service.setTaskCompleted`；条目文案显示类别/起始时间/`location`，全天条目显示日期与「全天」，配「知道了」。
-- `ttlMs = 30min`,过期不重弹;
-- 用户点了哪个动作,broker 的 `settled(id)` Promise 就以该 action id 结算。
+- 桥每 60s 读 `service.upcomingReminders()`(`kind: 'task'|'entry'` 与确定性 `key`),提醒时刻进入投递窗口即 `ctx.vivarium.notices.post`;
+- `id = sched-rem-<key>`(任务键 `<taskId>`,条目键 `entry-<id>`);重复 post 由 broker 去重;
+- 任务文案配「知道了」+「已完成」,后者调用 `service.setTaskCompleted`;条目文案显示类别/起始时间/`location`,全天条目显示日期与「全天」,配「知道了」;
+- `ttlMs = 30min`,过期不重弹;用户点了哪个动作,broker 的 `settled(id)` Promise 就以该 action id 结算。
 
-窗口语义说明:派生集只含未来时刻,一旦过点即从集合消失;60s 提前量 = 至多早一分钟弹出、
-绝不漏发。核心 Config 关闭提醒时派生集为空,气泡与页面通知同步静默(策略一致性)。
+窗口语义:派生集只含未来时刻,过点即从集合消失;60s 提前量 = 至多早一分钟弹出、绝不漏发。
+核心 Config 关闭提醒时派生集为空,气泡与页面通知同步静默(策略一致性)。
 
-### 2.2 任务状态上报(基座 §4c `tasks.report`,2026-10-21 重构)
+### 2.2 任务状态上报(基座 §4c `tasks.report`)
 
 解耦链路(vivarium §4c):**桥只报事实,基座推宠物语义,物种只做表现**。
 
@@ -53,7 +53,7 @@ Notification/页面内 toast)和**桌宠气泡**(桥,可选增强)。桥
 
 桥对旧版 vivarium(无 `tasks.report` 面)自动降级:一次性 warn,状态上报关闭,提醒气泡不受影响。
 
-### 2.3 拖拽收纳(基座 §4d `drops.onDrop`,2026-10-22;图片与确认即会话 2026-10-23)
+### 2.3 拖拽收纳(基座 §4d `drops.onDrop`)
 
 用户把浏览器/编辑器里的文本,或截图/图片文件拖到桌宠轮廓上,期望「收下」;点「确认」后
 直接新建 Agent 会话,不再经过剪贴板页。链路仍保持两头分离:
@@ -87,7 +87,7 @@ ack 后才删除。图片限制为 PNG / JPEG / WebP / GIF、单张 20 MiB(与 D
 与基座校验一致。旧基座无 `drops.onDrop`/`onText`,或旧核心无 `dropbox.stage` 时桥一次性
 warn 并忽略拖放,提醒/任务上报不受影响;Config `dropToAgent: false` 可关闭。
 
-### 2.4 拖放会话的提问/审批中继(2026-10-23)
+### 2.4 拖放会话的提问/审批中继
 
 快捷创建链路的最后一环:会话交给 Agent 之后,Agent 的询问与确认框也要能到达桌宠,否则宠物
 只能摆出等待姿态。DSH 把这两类请求派发到 Agent 作用域的 Cordis 瀑布(`user-questions/request`
@@ -127,4 +127,4 @@ warn 并忽略拖放,提醒/任务上报不受影响;Config `dropToAgent: false`
 - **拖拽收纳**:已实现(见 §2.3/§2.4);后续只做真实桌面壳的 OS 级拖放抽查与体验打磨。
 - **徽标常驻**:任务事实已入 vivarium `/vivarium/state` 快照 `tasks` 字段;物种要常驻「下一截止」
   徽标时,由基座把事实追加上信号线(additive)即可,桥无需改动。
-- 提醒模型与提前量的事实基线见 `00` §4.4；桥不新增提醒种类或来源专用地点字段。
+- 提醒机制与提前量的唯一权威见 `05` §4；桥不新增提醒种类或来源专用地点字段。

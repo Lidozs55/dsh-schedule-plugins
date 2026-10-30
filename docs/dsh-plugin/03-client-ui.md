@@ -83,7 +83,17 @@ window.__ModuleLoader__.load({
 - **不要** `require('@deepseek-ai/dsh-client-ui-primitives')` 或任何 `@deepseek-ai/dsh-client-*` 包：它们无预警变更，plain-JS 没有类型检查，组件一抛错整个槽位条目白屏（控制台 `slot entry crashed in '<slot>'`）。需要的控件照抄宿主原语的标记与行为，类名换成自己的前缀。
 - **不要**替换应用根、**不要**向 `document.body` 追加第二个应用、**不要**读写别的插件的 DOM/样式、**不要**用 iframe（iframe 拿不到主题 token、明暗切换与 `ctx.locale`）。
 
-### 2.1 另一种形态：dynamic Client half
+### 2.1 分块缓存：改了 client 代码为什么"看不到变化"
+
+客户端分块由宿主静态服务下发，有三重缓存坑（实测，排查"改了没生效/半新半旧混渲染"先看这里）：
+
+1. 分块 URL 的 `?rev=` 与文件内容**无关**——bump `package.json` 版本也不会变，rev 是宿主**启动时**算好的串；
+2. 分块响应带 `cache-control: max-age=31536000, immutable`——rev 不变时浏览器**磁盘缓存**永不回源；
+3. 宿主在**启动时快照** client 文件——不重启 host，原 rev URL 返回的是旧内容。
+
+因此改 client 后必须：**重启宿主**，再对每个分块 `fetch(url, { cache: 'reload' })` 绕过 HTTP 缓存，然后 reload 页面。只做其中一步就会看到新旧代码混跑（例如浮层无样式平铺）。
+
+### 2.2 另一种形态：dynamic Client half
 
 除了 bundle 的 `client.js`，还有一种由 Agent 在运行时定义的"动态半侧"，它看到的是**另一套符号**（`cordis_inspect_query { platform: "client", provider: "Builtin", method: "listBuiltins" }`）：
 
@@ -126,7 +136,7 @@ ctx.slots.inject(ownerKey, () => ctx.slots.register(options, Component))
 | `shell.overlay` | list / root | 全窗口浮层，在每列之上、滚动容器之外；**层本身点击穿透**，条目需自己 opt-in 指针事件 | ★★ 提醒 toast |
 | `conversation.composer.dock` | list / session | 输入框卡片下方的环境条目（无 owner props） | ★ 会话内小挂件 |
 | `conversation.input.dock` | list / session | 输入框卡片上方整宽条目（owner props = `InputZone`） | ★ |
-| `tool.call.toolview` | keyed / session | 按线上工具名分派的工具卡片（见 `06` §9） | ★★ |
+| `tool.call.toolview` | keyed / session | 按线上工具名分派的工具卡片（见 `06` §5） | ★★ |
 | `root` | single / root | **绝对不要注册**：single 槽位里第二个条目会**遮蔽**整帧（且自动优先级让你赢），页面会只剩你的组件，所有 seat 消失 | ✖ |
 
 **id 的三重身份**（这就是 `sidebar.panellist` 与 `main` 的绑定方式）：
@@ -180,52 +190,16 @@ useResource, useWorkspaces, usePanelInfo, useSessions, useSessionStatus, useSess
 
 宿主负责主题：`@deepseek-ai/dsh-client-ui-theme` 拥有 `--dsw-*` 静态色阶、语义别名、排版、动效、阴影、滚动条与明暗偏好；`ui-layout` 把解析后的快照应用到文档。**插件必须用语义别名，不得另立全局主题**（`ctx.theme.register(definition)` 是"注册一套主题"，插件不该用）。
 
-### 4.1 `Theme.listTokens` 报出的 14 个内建 token
+要点清单（完整规范以官方文档为准，见本节末尾）：
 
-全部 `valueType: "CSS color"`、`requiresLightAndDark: true`：
+- **token 族**：语义别名涵盖底色/抬升面/浮层（`--dsw-alias-bg-*`）、边框（`--dsw-alias-border-l1…l4`）、品牌（`--dsw-alias-brand-primary`）、文字（`--dsw-alias-label-primary/secondary`）、四态（`--dsw-alias-state-{error,success,warn,idle}-primary`）、侧栏（`--dsw-specific-sidebar-fill`）、链接（`--dsw-alias-link`）；另有圆角刻度 `--dsw-radius-xs/sm/md/lg/xl/panel` 与阴影 `--dsw-elevation-{soft,panel,prominent}`。内建 token 目录可用 `Theme.listTokens` 现场查询，但那只是检查用子集——样式表里还有更多别名族（settings 卡、menu surface 等），用前先查或照抄同类宿主页面。
+- **颜色**：shell 颜色、排版、层级、动效一律走 `--dsw-*` token；禁止复制静态 shell 色板，功能组件 CSS 禁止主题选择器。**不得**引入组件库或 Tailwind（手写 bundle 没有 CSS Modules，用 §2 的样式注入方式，类名带自己的前缀）。**唯一颜色字面量例外**是 `global.categories` 的用户配置 `#RRGGBB` accent：通过 `--bsch-block-color` 用于日历块与预览，小日历色点使用同一类别颜色（规则见 `00` §3.3）。
+- **圆角**：按控件尺寸选 6 档 token（键帽 `<H20`→xs … 主容器→panel），**不要**新增 10/14/18/24 这类局部数值；普通圆角面用主题的 `superellipse(1.5)` 曲线；同心内缩 R = `max(0, 外层 R − 内缩距离)`；标准菜单外层 R16 + 4px 内边距 + R12 菜单项；每个正圆（`50%`/胶囊）必须配 `corner-shape: round`。
+- **边框与阴影**：中性 `--dsw-alias-border-*` 的平面边框/分割线一律 **0.5px**（虚线记号与状态色边框保持 1px）；高浮起面 `border: 0` + `box-shadow: var(--dsw-elevation-*)`，**不得**把中性 border 与 elevation 阴影配对。
+- **其他**：字号必须与行高成对；源码/终端/diff 文本不换行；滚动条用共享样式，不自定义组件专用滚动条选择器；呈现规则写进 CSS，React 内联样式只传局部自定义属性值、不得编码主题分支；菜单用宿主 `Menu`/`MenuSurface` 语义，模态框保留黑色半透明遮罩，链接 `--dsw-alias-link` + `font-weight: 500` + 3px offset 点状下划线；设置卡片材质用 `--dsw-alias-settings-card-stroke/fill`，不要再叠中性边框。
+- **间距没有官方尺度**：官方样式文档只有具体数值。做法是**照抄同类宿主页面**——管理类列表以 Plugin Manager 页面为参照。
 
-`--dsw-alias-bg-base`（应用底色）、`--dsw-alias-bg-layer-1`（一级抬升面）、`--dsw-alias-bg-layer-2`（二级嵌套面）、`--dsw-alias-bg-overlay`（浮层/弹层底）、`--dsw-alias-border-l1`（一级细边框）、`--dsw-alias-border-l2`（二级更强边框）、`--dsw-alias-brand-primary`（品牌主色）、`--dsw-alias-label-primary`（主文字）、`--dsw-alias-label-secondary`（次文字）、`--dsw-alias-state-error-primary` / `--dsw-alias-state-success-primary` / `--dsw-alias-state-warn-primary` / `--dsw-alias-state-idle-primary`（四态）、`--dsw-specific-sidebar-fill`（侧栏列与标题行底色）。
-
-> 这份列表是**给检查用的内建目录**，不是全部 CSS 变量：主题样式表里还有更多别名族（`--dsw-alias-border-l3/l4`、`--dsw-alias-link`、`--dsw-alias-bg-layer-3`…）以及圆角/阴影/设置卡片等 token（见下）。要用某个 token 前，先在已连接页面里查一下它是否存在或照抄同类宿主页面用法。
-
-### 4.2 硬性规则
-
-- **CSS Modules + `clsx`**（编译型插件）；**不得**引入组件库或 Tailwind。手写 bundle 没有 CSS Modules，就用 §2 的样式注入方式，类名带自己的前缀。
-- shell 颜色、排版、层级、动效使用宿主 `--dsw-*` token；禁止复制静态 shell 色板，功能组件 CSS 禁止主题选择器。唯一颜色字面量例外是 `global.categories` 的用户配置 `#RRGGBB` accent：通过 `--bsch-block-color` 用于日历块和预览，小日历色点使用同一类别颜色。
-- 字号必须与行高成对；源码/终端/diff 文本不换行；滚动条用共享样式，**不要**自定义组件专用滚动条选择器。
-- 呈现规则写进 CSS；React 内联样式只能传组件局部自定义属性值，**不得**用它编码主题分支。
-- 中性 `--dsw-alias-border-*` 的平面边框/分割线一律 **0.5px**；虚线记号与状态色边框保持 1px。
-- 高浮起面：`border: 0` + `box-shadow: var(--dsw-elevation-panel | --dsw-elevation-prominent | --dsw-elevation-soft)`；**不得**把中性 border 与 elevation 阴影配对。
-- 菜单用宿主的 `Menu` / `MenuSurface` 语义（`--dsw-menu-surface-fill`、`--dsw-menu-backdrop-filter`），功能 CSS **不得**覆盖它们；模态框保留黑色半透明遮罩（主题把 `--dsw-mask-blur` 设为 `none`）；链接用 `--dsw-alias-link` + `font-weight: 500`，hover/focus 为 3px offset 的点状下划线。
-- 每个正圆（`50%`、胶囊半径）必须配对 `corner-shape: round`。
-
-### 4.3 圆角统一规范
-
-| 用途 | 典型尺寸 | 圆角 | token |
-|---|---|---|---|
-| 小细节（键帽、行内代码） | < H20 | R4 | `--dsw-radius-xs` |
-| 紧凑控件 | H20–28 | R8 | `--dsw-radius-sm` |
-| 标准控件/单行 cell | H32–40 | R12 | `--dsw-radius-md` |
-| 大控件/分组内容 | 大按钮、多行 cell | R16 | `--dsw-radius-lg` |
-| 独立内容卡片 | 设置卡片、消息气泡 | R20 | `--dsw-radius-xl` |
-| 主容器 | 输入框、对话框、主面板 | R28 | `--dsw-radius-panel` |
-
-- **不要**新增 10px / 14px / 18px / 24px 这类局部数值；普通圆角面用主题的 `superellipse(1.5)` 曲线。
-- 同心内缩：内层 R = `max(0, 外层 R − 内缩距离)`，用同一曲线。
-- 标准菜单：外层 R16、4px 内边距、R12 菜单项；紧凑菜单：外层 R12、4px 内边距、R8 菜单项。
-- 设置卡片材质：
-
-```css
-.card {
-  border-radius: var(--dsw-radius-xl);
-  border: 0.5px solid var(--dsw-alias-settings-card-stroke);
-  background: var(--dsw-alias-settings-card-fill);
-}
-```
-
-（主题在 `body` 上把卡片底色解析为 `--dsw-alias-bg-layer-2`、描边解析为 `--dsw-alias-border-l4`；不要再叠一层中性边框，也不要仅为区分 tab 就加阴影。）
-
-**间距没有官方尺度**：官方样式文档只有具体数值（如菜单 4px 内边距）。做法是**照抄同类宿主页面**——管理类列表以 Plugin Manager 页面为参照。
+**官方文档**：Web UI 样式参考 `docs/web-styling.zh.md`、统一圆角规范 `docs/ui-radius.zh.md`（DSH checkout 内，或在线站点 <https://deepseek-harness.github.io/deepseek-harness/>）；本节是执行摘要，冲突时以官方文档为准。
 
 ---
 
@@ -269,10 +243,9 @@ Host 侧 `ctx.commands.register({ name, description, input, handler })`（见 `0
 
 ⚠️ 这条链路依赖 DSH 仓库里的生成链。**本仓库手写的 plain-JS bundle 没有这条链**，第一版不要规划自造 Remote 端点；若确实需要，先决定是否把 bundle 改成带构建的包（并用 `Config.listConfigs` 拿到的 dsh `packageDir` 对齐版本），或改用下面这条。
 
-### 5.4 自己开 HTTP 路由：`webServer` 与 `connection.fetch` 是两条不同的路
+### 5.4 本插件的写路径：`connection.fetch` 精确路由
 
-- `ctx.webServer.register({ kind: 'prefix', path: '/…' })`（见 `02` §2.9）：**无鉴权**（README 原话 "carries no TLS, authentication, or origin policy"），不要承载业务写。
-- **本插件采用的写路径**：`ctx.connection.fetch.register()` 在共享 `/api` 前缀的 Fetch 注册表上挂精确路由（`/api/schedule-core`）。浏览器信任围栏 + 签名 cookie 鉴权**先于**插件 handler（`ConnectionFetchRoute` 文档："Handle one request after the physical carrier has applied its trust and authentication policy"），与 Remote RPC 同级可信。host 侧实现见 `host/api.js`；这就是 root-scope 页面（`main` 非 conversation key）的完整读写通道，手写 bundle 不需要 §5.3 的生成链。
+root-scope 页面（`main` 非 conversation key）的完整读写通道是 `ctx.connection.fetch.register()` 在共享 `/api` 前缀上的精确路由（本插件为 `/api/schedule-core`，host 侧实现见 `host/api.js`）：浏览器信任围栏 + 签名 cookie 鉴权**先于**插件 handler，与 Remote RPC 同级可信，手写 bundle 不需要 §5.3 的生成链。决策依据见 `00` 的架构决策记录；`ctx.webServer` 路由**无鉴权**（`02` §2.9），不要承载业务写。
 
 ---
 
@@ -308,30 +281,55 @@ ctx.slots.register({ name: 'main', key: 'schedule-calendar', locale: 'scheduleCo
 - 注册都是 effect：`ctx.effect(cb, label?)`、`ctx.on(...)` 随插件卸载自动移除。
 - 组件卸载时，它渲染的局部样式元素和自建监听必须消失。定时器用 `ctx.timer`（随 fiber 释放），不要裸 `setInterval`。
 - 插件 UI 是**宿主 UI 的一部分**：用户看到的是**一个**应用，所以必须用宿主的主题、locale 与布局惯例，并与同类宿主页面保持一致。
+- **不要改宿主 DOM**（标题等由自己的组件渲染）；拖拽/撤销等**交互状态放组件本地**，写操作一律走 Host 服务方法（UI 与 CLI 没有各写一套）。
 - 被释放后再调用生命周期相关的 effect 会抛 `CordisError('INACTIVE_EFFECT')`；结构非法抛 `TypeError`。**不要**自己调用属于生命周期的 disposer。
 
----
-
-## 8. 与旧 Vue 实现的对应关系
-
-当前类别 UI 读取 `snapshot.global.categories` 有序定义（稳定 id、可改名、`#RRGGBB` 颜色，默认七项见 `00` §3.3）。已有列表不恢复删除预设；`other` 固定名“其它”、不可删但可改色。设置页原生颜色选择器即时预览同款日历块，增改删后显式 `setCategories` 保存；删除确认说明已有条目改归 `other`。未保存草稿与普通 metadata 独立，错误、来源刷新、学期保存不覆盖草稿，导入后重读 metadata。
-
-编辑器、批量编辑器、周网格及小日历使用动态选项/名称/颜色；已打开编辑器和撤销恢复遇已删除类别时归 `other`，恢复失败展示可重试错误。单个与批量编辑器共用紧凑 `role="switch"`，单一标签“锁定（不可拖动）”，支持键盘，锁仅影响快捷移动/缩放。当前实现的离线 VM 测试不构成浏览器、主题或鼠标命中验证。
-
-
-迁移已完成；旧组件的**交互意图**（拖选新建、时间轴范围、撤销重做、任务筛选……）逐条清单与现状偏差见 `10-ui-parity-rework.md`，旧文件地图见 `00-architecture.md` §7。仍在生效的两条规则：不要改宿主 DOM（标题等由自己的组件渲染）；拖拽/撤销等交互状态放组件本地，写操作走 Host 服务方法。
+交付前自查以 `08` 的验收清单为准（本篇不再维护独立清单）。
 
 ---
 
-## 9. 交付前自查
+## 8. 交互契约（周网格与编辑器）
 
-- [ ] `client.js` 的 `id` 等于包名；`exports["./client"]` 指向它；`dsh.client.platform === "web"`。
-- [ ] `factory` 无副作用；没有 `require` 任何 `@deepseek-ai/dsh-client-*` 包。
-- [ ] 槽位名与注册字段（`id` / `key` / `order` / `locale`）由 `Slots.listSubTree` 现场确认过；**没有**注册进 `root`。
-- [ ] 组件 props 来自 `selected.catalog`（`ownerProps` / `standardProps`）或 owner 的类型文件，没有猜。
-- [ ] **没有**传 `priority`；复用宿主 key 是**有意**遮蔽。
-- [ ] `sidebar.panellist` 的 `id` 与 `main` 的 `key` **完全一致**。
-- [ ] shell 样式使用 `--dsw-alias-*` / `--dsw-radius-*` / `--dsw-elevation-*`；类别配置的 `#RRGGBB` accent 是唯一颜色字面量例外；无主题选择器；边框 0.5px；圆角用 token。
-- [ ] 明暗两套主题都读过；控制台无 `slot entry crashed`。
-- [ ] 文案走 locale；组件卸载后无残留样式/监听/定时器。
-- [ ] 写操作只有一条路径（Host 服务方法），UI 与 CLI 没有各写一套。
+本节是日历 UI 的交互权威：§8.1 记录**交互设计意图**的逐条清单（源自已删除的旧 Vue 实现，过程考古走 git 历史；"有意不迁移"清单见 `00` §2），§8.2 是**当前交互契约**（Windows 风格交互模型），§8.3 是类别配置 UI 的行为。
+
+### 8.1 交互设计意图（逐条清单）
+
+| # | 意图 | 现状/决策 |
+|---|---|---|
+| 1 | 拖选新建 + 单击 1h 幽灵块 + 点幽灵开编辑 + 点外部销毁 | 已实现，后按 Windows 习惯演进为**右键**建幽灵（§8.2） |
+| 2 | 4:00–28:00 时间轴、23:00 日界粗线、24:00 标签隐藏、<4 点归前一天 | 已实现（`gridDay` 分桶；时间语义铁律见 `00` §1） |
+| 3 | today 锚点 7 天窗口、回今天、±7 天平移、标题日期范围 | 已实现（锚点在 04:00 前取昨天；星期按实际日期计算） |
+| 4 | 当前时间线 nowIndicator | 已实现（只画在当天列内，窗口锚点不在今天时不绘制） |
+| 5 | 限制部分条目的快捷移动/缩放 | 统一为条目 `lock`：仅禁止左键快捷移动/缩放；分类不决定能否拖动；显式编辑、删除、右键菜单仍可用（语义见 `00` §3） |
+| 6 | undo/redo 双栈各 5 步 + 键盘 + 撤销删除重建 | 已实现（Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y；撤销删除走重建，id 会换新——有意接受） |
+| 7 | 点条目开编辑弹窗 | 已实现（现为双击编辑） |
+| 8 | 标题截断（中文 2 单位、20 单位封顶）+ 小字号 + 时长自适应 padding | CSS ellipsis 方案等价，保留现状（有意偏差，不照抄 padding 逻辑） |
+| 9 | 周末列浅色底 | 已实现（is-weekend + token） |
+| 10 | 快速跳转月历 + 重要度色点 | 已实现（`client.calendar.js`：MiniCalendar 月网格、日/任三档色点、+3 条升档、点日期跳锚点） |
+| 11 | 批量添加（BatchAddModal） | 已实现（`client.editors.js` BatchEditor，走 host `batchCreateEntries`；周重复按 dayOfWeek 过滤；整批一个 undo 步；`allowConflicts: true` 沿袭静默越过冲突） |
+| 12 | 任务状态筛选 + 截止排序 + 统计 + 即将到期 | 已实现（状态下拉 + 优先级下拉 + 组内截止升序 + 统计；**分组结构保留**——窄面板下分组优于原版平铺，有意偏差） |
+| 13 | 编辑器字段（标题/类型/起止/备注；颜色按类别 token） | 已实现（颜色走类别配置 accent，见 §4；不回退到自由选色） |
+| 14 | 视图变化重拉数据 + 20s 轮询 | 已实现 |
+| 15 | 加载角标 spinner | 以 loading/error 态等价实现，不照抄 |
+| 16 | 全天槽隐藏 / LLM 条目注入 / AbortController 竞态处理 | 不适用或已由宿主/tooling 覆盖，跳过 |
+
+### 8.2 Windows 风格交互模型（当前契约）
+
+周网格（`client.weekgrid.js`）的指针与键盘语义，按 Windows 桌面习惯设计：
+
+- **左键**：单击已有条目 = **选中**（空白 = 清空选中）；**双击 = 编辑**；长按拖动 = 移动**所有选中项**（按-拖-抬解耦：点击永不误触拖动、拖动永不误触点击）；空白长按 = **框选**（橡皮筋矩形，与块矩形求交）。
+- **右键**：空白**单击 = 1h 幽灵 / 拖拽 = 带状幽灵**，右键手势必先清场所有幽灵；右键已有条目（选中并）打开编辑页；右键幽灵 = 打开幽灵编辑页；网格内原生右键菜单一律 `preventDefault`。
+- **幽灵生命周期**：与幽灵无关的操作一律销毁；**单击幽灵不立即销毁**——350ms 内无第二次按下（双击）才销毁；双击幽灵 = 编辑页。
+- **键盘**：`Delete` 删除全部选中（整批一个 undo 步，撤销 = 整行重建）；`Escape` 清幽灵 + 选中；Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y 撤销重做。
+- **多选规则**：拖未选中块 = 只拖它；拖已选中块 = 移动选中项中的**未锁定**行；锁定项仍可选中、编辑与删除（混合选择移动只带未锁定行，删除仍作用于全部选中项，见 `00` §3）。Shift/Ctrl 点选按用户许可暂缓。
+- **move/delete 多态契约**：`service.moveEntry(moves)` / `deleteEntry(ids)` 单个走旧契约（返回行/抛错）、数组走批契约（逐条 `{ok, id, conflicts?}`、不抛）；client 只剩 `applyMoves` / `deleteEntries` 两条路径，resize 与拖拽共用前者，冲突只剩一个裁决弹窗。
+- **实现备注**（历史真 bug 教训）：`ghost.day` 存列下标，回 `onCreateAt` 必须转 `days[i]`（直接传下标会在 `zonedAt` 里崩）；框选命中测试必须**全程视口坐标**（网格本地坐标与 `getBoundingClientRect` 混用会 0 命中）；React 双击事件名是 `onDoubleClick`（写 `onDblClick` 不挂）。另：`dispatchEvent` 合成事件绕过浏览器 hit-testing，不能作为命中验收的证据。
+
+### 8.3 类别配置 UI 行为
+
+类别模型与规则（有序定义、`other` 兜底、删除预设不复活）的权威在 `00` §3.3；这里只记录 UI 行为：
+
+- 类别 UI 读取 `snapshot.global.categories` 有序定义；设置页原生颜色选择器即时预览同款日历块，增改删后显式 `setCategories` 保存；删除确认说明已有条目改归 `other`。
+- 未保存草稿与普通 metadata 独立：错误、来源刷新、学期保存不覆盖草稿；导入后重读 metadata。
+- 编辑器、批量编辑器、周网格及小日历使用动态类别选项/名称/颜色；已打开编辑器和撤销恢复遇已删除类别时归 `other`，恢复失败展示可重试错误。
+- 单个与批量编辑器共用紧凑 `role="switch"` 锁定控件，单一标签「锁定（不可拖动）」，支持键盘；`lock` 语义见 `00` §3。

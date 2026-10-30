@@ -1,7 +1,7 @@
 # 01 · 插件解剖：bundle、清单、patch、安装与生命周期
 
 > 本文档描述 DSH（DeepSeek Harness）的插件形态。DSH 的架构是 **everything is a plugin**：Harness 本体、Web UI、工具、界面槽位都是插件，由 Cordis Loader 按 profile 组合。
-> 事实基线：本机 checkout `D:\deepseek-harness`，版本 `@deepseek-ai/dsh-root@0.2.0-rc.2`。**运行时才是权威**——任何签名/事件/槽位都可用 `cordis_inspect_query` 现场核对（见 `02-host-api.md` 与 `09`→已并入 `02`）。
+> **运行时才是权威**——任何签名/事件/槽位都可用 `cordis_inspect_query` 现场核对，查证方式与 DSH 版本事实见本目录 `README.md`。
 
 ---
 
@@ -13,7 +13,7 @@
 | **bundle** | 一个 npm 包，用 `package.json` 声明 `dsh.bundle.patch`，用 YAML patch 把若干 plugin row 插进 Loader 组合 | 包目录 |
 | **profile** | 用户当前的插件组合（一组有序的 patch 层叠加在 bundle 的 row 列表上） | `$DSH_PROFILE_DIR` |
 
-一个 bundle 可以只含一个 plugin row，也可以插入多行。**本插件（`@lidozs55/dsh-schedule`）就是一个单 row bundle**。
+一个 bundle 可以只含一个 plugin row，也可以插入多行。**本项目（四个 bundle：核心/北航/二游/桥）的每个 bundle 均为单 row**。
 
 ---
 
@@ -152,104 +152,33 @@ cordis_inspect_query { platform: "host", provider: "Config",
 
 ## 6. Client 半（在 Web UI 里渲染）
 
-在清单里加 `dsh.client` 段并导出 `./client`，浏览器半就会由 client module system 加载：
+在清单里加 `dsh.client` 段（`platform: "web"`、可选 `immediately`、信息性的包名 `inject` 列表与 `external` 模块表）并导出 `./client`，浏览器半就会由 client module system 加载；`exports["./client"]` 指向的浏览器产物不需要构建，它就是一个调用 `window.__ModuleLoader__.load({ id, factory })` 的文件（`id` 必须等于包名）。
 
-```json
-{
-  "exports": { ".": "./index.js", "./client": "./client.js" },
-  "dsh": {
-    "bundle": { "patch": "./cordis.patch.yml" },
-    "client": {
-      "platform": "web",
-      "immediately": true,
-      "inject": ["@deepseek-ai/dsh-client-ui-conversation"]
-    }
-  }
-}
-```
+**关键限制**：client 半只挂在说明符恰好是**裸包名**的那一行上。若把一个包拆成多行（子路径导出），只有根行带半侧，页面会随根行关闭而消失；需要独立生命周期的页面要单独发包。
 
-- `dsh.client.platform`：`web`。
-- `immediately`：引导第一阶段的注册屏障；**缺省表示随共享应用批次**加载。
-- `inject`：**信息性的包名依赖**（决定 factory 到达与插件组合的顺序），**不是** Cordis 服务注入——Cordis 的 `inject` 是插件自己导出的数组。
-- `external`：除隐式 client 基线之外**精确请求的模块表条目**（含 `<pkg>/client` 这类子路径）。
-- `exports["./client"]` 指向浏览器产物。手写的 plain-JS 产物**不需要构建**：它就是一个调用 `window.__ModuleLoader__.load({ id, factory })` 的文件，`id` 必须等于包名。
-
-**关键限制**：client 半只挂在说明符恰好是**裸包名**的那一行上。若把一个包拆成多行（子路径导出），只有根行带半侧，页面会随根行关闭而消失。需要独立生命周期的页面要单独发包。
-
-细节、槽位与样式规则见 `03-client-ui.md`。
+槽位体系、样式 token、locale 与 Client→Host 调用路径的唯一权威见 `03-client-ui.md`。
 
 ---
 
-## 7. 安装、启用、观察
+## 7. 安装、启用与生命周期（速记）
 
-安装**不要**手写 profile 的文件，也不要手动跑 pnpm：
+安装/启停一律走 `plugin_manager`（`install_bundle` / `list_plugins` / `set_plugin` / `list_bundles` / `set_bundle` / `remove_bundle`），**不要**手写 profile 的文件，也不要手动跑 pnpm。判断变更是否生效看返回值（`applied` / `warnings` / `failed` / `overridden` / `restart-required`），并记住三条 HMR 语义：新装 bundle 可能经 HMR 直接激活；**替换**已安装的包要重启才换新模块代；slot id 没变不能推断浏览器代码已更新。资源生命周期归 `ctx.effect` / `ctx.on`（§4.1）。
 
-| 动作 | 工具 | 说明 |
-|---|---|---|
-| 安装 bundle | `plugin_manager` `action: "install_bundle"`，`target` = 该包目录的绝对路径 | 由它完成包安装与 bundle 选择 |
-| 列出/启用/禁用 | `action: "list_plugins"` / `"set_plugin"` | 得到精确的 row id 后再切换 |
-| 列出/启用/禁用 bundle | `action: "list_bundles"` / `"set_bundle"` | |
-| 卸载 bundle | `action: "remove_bundle"` | |
-
-`install_bundle` 可能报告 `pendingBuilds`：**只有在用户明确同意**后才把它传给 `approvedBuilds`。返回的失败与 pending 状态要原样保留；只有观察到能力真的可用才算成功。
-
-判断是否生效，看返回值而不是日志：
-
-- `application: applied` —— 变更已生效。
-- `warnings` —— 逐条读。
-- `failed` —— 必须排查。
-- `overridden` —— 有更高优先级的层赢了（你的 patch 被别的层覆盖）。
-- `restart-required` —— 变更**没有**上线。
-
-补充语义：新装 bundle 可能经 HMR 直接激活；**替换**已安装的包需要重启才能加载新的 JS 模块代；slot id 没变**不能**推断浏览器代码已更新。
-
-`plugin_manager` 的每个动作（包括 `list_plugins` / `list_bundles`）在没有完全权限时都需要审批，所以只在结果会影响下一步时调用。
+返回值语义、`pendingBuilds` 审批、验收清单、排查表与禁忌汇总的**唯一权威见 `08-workflow-and-verification.md`**。
 
 ---
 
-## 8. 生命周期与 HMR 语义（速记）
+## 8. 本仓库的落位
 
-- 注册 = 属于某个 context 的 effect；谁注册谁负责，卸载即撤销。
-- 插件代码/配置的**热更新**由 `@deepseek-ai/dsh-hmr` 协调；`app-boot/config-reload` 事件表示 profile patch 已对齐到运行中的 Loader 树。
-- **已安装包的替换**要重启进程才换新模块代。
-- 浏览器半的重建由 Client 构建链负责；只有 `pnpm run dev:web` 正在运行时才会自动重建并热替换，否则改完要重建 Web 产物并刷新页面。
-- 不要另起一个服务器来"验收"自己的改动——那验证的不是用户正在看的那个 GUI。
+实际产物在 `dsh-plugin/` 下四个 bundle 目录（核心 `dsh-schedule/` = Host 入口 + `host/` 模块 + Client 入口 + `client.*.js` 分块；其余见 `00-architecture.md` §1 代码地图）。本仓库的约定：
 
----
-
-## 9. 本仓库的落位
-
-实际产物在 `dsh-plugin/dsh-schedule/`（Host 入口 + `host/` 模块 + Client 入口 + `client.*.js` 分块），完整代码地图见 `00-architecture.md` §1。本仓库的约定：
-
-- 文档放 `docs/dsh-plugin/`；旧实现（`electron/`、`backend/`、`frontend/`）已于 2026-10-20 删除，仓库只剩 `docs/` 与 `dsh-plugin/`。
+- 文档放 `docs/dsh-plugin/`；旧实现（`electron/`、`backend/`、`frontend/`）已删除，仓库现在只有 `docs/`、`dsh-plugin/` 与仓库元信息（根 `README.md`、`package.json`）。
 - bundle 目录名/包名/row id 一旦安装就与 profile 绑定，**改名 = 重新安装**；`@lidozs55/dsh-schedule` / `schedule-core` 已定死（核心与桥原用 `@buaaer/` 前缀，与北航无关，已改为 `@lidozs55/` 并重装过一次）。
 
 ---
 
-## 10. 硬性禁止（踩了就坏）
+## 9. 硬性禁止（速记）
 
-- ❌ 手写 profile 的 `package.json` / `cordis.patch.yml`，或在 profile 目录里跑 pnpm；`install_bundle` 会代劳。
-- ❌ 在 `$DSH_HOME` 下创建包。
-- ❌ 让插件给 Session 日志追加**新的事件类型**（`ignorable: true` 只对已存盘事件有效，`Session.append()` 设不了该标记，Session 会拒绝重开）。
-- ❌ 在 Client 半里 `require('@deepseek-ai/dsh-client-ui-primitives')` 或任何 DSH Client 包（见 `03-client-ui.md`）。
-- ❌ 用 iframe 承载插件页面（拿不到主题 token、明暗切换与 `ctx.locale`）。
-- ❌ 轮询 `agent/status`、直接写 DOM、向 `document.body` 追加第二个应用。
-- ❌ 把可调参数写死在代码里而不是 `Config`。
+踩了就坏的平台级红线——不手写 profile 文件、不在 `$DSH_HOME` 建包、不给 Session 日志追加新事件类型、不在 Client 半 `require` DSH Client 包、不用 iframe 承载页面、不轮询 `agent/status`/直接写 DOM、可调参数不写死进代码。
 
----
-
-## 延伸阅读（官方文档）
-
-本机 checkout 内有官方中英文文档，在线站点为 <https://deepseek-harness.github.io/deepseek-harness/>。与本文件对应：
-
-| 主题 | 本地路径（本机 checkout） |
-|---|---|
-| 第一个插件 | `docs/user/develop/basic/index.zh.md` |
-| 插件配置 / Config | `docs/user/develop/basic/config.zh.md` |
-| 打包与安装插件 | `docs/user/develop/basic/publish.zh.md` |
-| 插件与生命周期 | `docs/user/develop/framework/index.zh.md` |
-| 服务与依赖 | `docs/user/develop/framework/service.zh.md` |
-| 事件系统 | `docs/user/develop/framework/events.zh.md` |
-| Cordis 教程（7 章） | `docs/cordis-tutorial/*.zh.md` |
-| 能力 seam 总表 | `docs/capability-seams.zh.md` |
-| 术语表 | `docs/glossary.zh.md` |
+完整禁忌清单（逐条都是踩过的坑）与排查表的**唯一权威见 `08` §9**；Client 半专属规则见 `03`。

@@ -1,26 +1,13 @@
 # 02 · Host 侧接口速查（服务 · 事件 · 配置）
 
-> 本文抄录的是**本机运行时实测**的签名（`@deepseek-ai/dsh-root@0.2.0-rc.2`）。DSH 处于 developer preview，升级后必须重新核对。
+> 本文抄录的是**运行时实测**的签名快照。DSH 处于 developer preview，升级后必须重新核对；版本事实与基线见本目录 `README.md`。
 > **运行时是权威**：拿不准就去问它，不要靠猜、也不要靠本文（本文只是帮你少问几次）。
 
 ---
 
-## 0. 先学会查证（三分钟）
+## 0. 先学会查证
 
-```
-# 1) 服务目录（省略 service 时返回紧凑目录）
-cordis_inspect_query { platform: "host", provider: "Service", method: "listService" }
-# 2) 某个服务的精确契约（含被引用的类型声明）
-cordis_inspect_query { platform: "host", provider: "Service", method: "listService",
-                       input: { service: "storageDomain" } }
-# 3) 事件目录 / 单个事件契约
-cordis_inspect_query { platform: "host", provider: "Event", method: "listEvents",
-                       input: { event: "tools/pre-execute" } }
-# 4) 已安装插件的 Config schema → 先拿 entry id，再取 schema（会给出 packageDir）
-cordis_inspect_query { platform: "host", provider: "Config", method: "listConfigs",
-                       input: { name: "@deepseek-ai/dsh-storage-domain" } }
-# 5) 某个包到底怎么写：用上面的 packageDir 读 <packageDir>/README.md 与 lib/types/**/*.d.ts
-```
+用 `cordis_inspect_query` 现场问运行时：服务目录/契约（`Service.listService`）、事件（`Event.listEvents`）、Config schema（`Config.listConfigs`）各查一遍；再用返回的 `packageDir` 读那个包的 README 与 `lib/types/**/*.d.ts`。查证命令示例的唯一权威见本目录 `README.md`（「事实基线与核对方式」）。
 
 `Config.listConfigs` 返回的每个 entry 带 `id` / `patchId` / `name` / `status` / `packageDir` / `acceptsMissing` / `schema`。**只有 `status: "schema"` 的 entry 才有 `schema`**；`status: "absent"` 的 entry 没有 schema，也不代表运行时一定没挂载（`schema`/`tree`/`inactive`/`absent` 这套状态词的语义没有任何 inspect 输出解释过，别过度解读）。
 
@@ -69,36 +56,9 @@ get(name: string): DomainImpl | undefined
 async closeAll(): Promise<void>
 ```
 
-### 2.3 `ctx.timer` / `ctx.jobs` / `ctx.commands` — 时间与人工入口（详见 `05`）
+### 2.3 `ctx.timer` / `ctx.jobs` / `ctx.commands` — 时间与人工入口
 
-```ts
-// ctx.timer（混入 context 的助手，返回值即清理函数）
-timeout(callback: () => void, delay: number): () => void
-timeout(delay: number): Promise<void>
-interval(callback: () => void, delay: number): () => void
-interval<R = any>(delay: number): AsyncIterableIterator<void, R, void>
-throttle<F extends (...args: any[]) => void>(callback: F, delay: number, noTrailing?: boolean): F & { dispose: () => void }
-debounce<F extends (...args: any[]) => void>(callback: F, delay: number): F & { dispose: () => void }
-
-// ctx.jobs（抽象 seam；实现 @deepseek-ai/dsh-jobs-local）
-readonly events: JobEvents
-start(spec: JobSpec): JobId
-list(caller?: SessionId): JobView[]
-get(id: JobId, caller?: SessionId): JobView
-read(id: JobId, caller?: SessionId): JobRead
-readAt(id: JobId, from: number, caller?: SessionId): JobOutputRead
-kill(id: JobId, caller?: SessionId, reason?: string): 'requested' | 'already-finished'
-wait(id: JobId, timeoutMs: number, caller?: SessionId, signal?: AbortSignal): Promise<JobView>
-remove(id: JobId, caller?: SessionId): void
-attachController(name: string): () => void
-
-// ctx.commands
-register(definition: CommandDefinition): () => void
-registerFileReceiptResolver(resolver: CommandFileReceiptResolver): () => void
-@Remote list(agent: Agent): readonly CommandDescriptor[]
-find(agent: Agent, name: string): CommandDefinition | undefined
-@Remote async execute(agent: Agent, line: string, submittedAttachments: readonly CommandSubmitAttachment[], signal: AbortSignal): Promise<CommandExecution | undefined>
-```
+进程内定时器（`ctx.timer`：timeout/interval/throttle/debounce，返回值即清理函数）、可观察后台作业（`ctx.jobs`：start/list/read/kill/wait/remove）与人类命令注册（`ctx.commands.register`）。**签名、选型表与坑的唯一权威见 `05`**——Host 侧写 `ctx.timer` 前必须把 `'timer'` 列进 `inject`（激活守卫）。
 
 ### 2.4 `ctx.systemPrompt` — 提示词贡献
 
@@ -144,7 +104,7 @@ abstract deleteRecord(key: CredentialKey): Promise<void>
 
 两套键空间：`CredentialRef` 回答"这个环境变量名背后是什么"（按调用解析，**不要跨操作缓存**——这正是轮换后下一次操作就生效的原因；空值一律视作未配置）；`CredentialKey` 回答"这个插件为这个 id 持有什么凭据"（只能靠 `modifyRecord` 写：token 刷新是"读—决定—替换"在一次锁内完成）。
 
-本项目：BUAA 密码**不该**进这里（它是一次性使用的交互凭据）；LLM key 应由宿主模型配置管理；确实需要长期保存的第三方 token 才用 `modifyRecord`。
+本项目怎么用（BUAA 密码不进这里、LLM key 归宿主、何时才用 `modifyRecord`）的唯一权威见 `04`。
 
 ### 2.7 `ctx.fs` — 文件读写（不要用 Node 的 `fs`）
 
@@ -173,9 +133,9 @@ watch(target: FsTarget, changed: (error?: Error) => void, signal: AbortSignal): 
 - 读/写/编辑**没有 `timeoutMs`**，取消只通过工具 signal 传播。
 - 错误码全集：`FS_NOT_FOUND | FS_NOT_DIRECTORY | FS_NOT_TEXT | FS_NOT_REGULAR_FILE | FS_TOO_LARGE | FS_PERMISSION_DENIED | FS_SANDBOX_DENIED | FS_IO_ERROR | FS_STALE_VERSION | FS_NOT_OBSERVED | FS_AMBIGUOUS_EDIT | FS_EDIT_NOT_FOUND | FS_ABORTED`。
 
-本项目用处：如果第一期先把日历数据落成插件自己管理的 JSON/CSV，用 `ctx.fs` 而不是 `node:fs`（这样沙箱与观测策略仍然生效）；读写要在工作区允许范围内。
+本项目：日程数据一律走 storage domain（见 `04` 与 `00` §3），不经 `ctx.fs`；将来确需读写文件时用 `ctx.fs` 而不是 `node:fs`（沙箱与观测策略仍然生效），且读写要在工作区允许范围内。
 
-### 2.8 `ctx.subprocess` — 起子进程（保留 Python 侧的路径）
+### 2.8 `ctx.subprocess` — 起子进程
 
 ```ts
 abstract resolveExecutable(command: string, env?: Readonly<Record<string, string>>, signal?: AbortSignal): Promise<string>
@@ -188,7 +148,7 @@ abstract spawnTerminal(spec: SubprocessTerminalSpawnSpec): Promise<SubprocessTer
 
 要点：**可执行文件路径属于与当前挂载文件系统共享的同一个"执行世界"**；`spawn` 同步返回活句柄；收集模式的读取是**按偏移、非消费**的，多个观察者互不干扰，被截断时 `lossy` 为真并可能给出 `spillPath`；服务释放时会终止所有仍在运行的受管子进程并等它们退出。**不要**用 `child_process` 自己起进程。
 
-> 若最终决定保留 Python 侧的 EasyOCR 或 BUAA SSO 抓取，就走 `ctx.subprocess.spawn`，并在 `ctx.effect` 的清理里释放它。
+本项目当前不 spawn 任何子进程（BUAA SSO/抓取均为 JS 实现，见 `11`）；若日后确需外部进程，走 `ctx.subprocess.spawn` 并把句柄释放登记进 `ctx.effect` 的清理。
 
 ### 2.9 `ctx.webServer` — 自己加 HTTP 路由（少数场景才需要）
 

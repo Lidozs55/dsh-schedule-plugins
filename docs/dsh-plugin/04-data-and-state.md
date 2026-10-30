@@ -152,30 +152,26 @@ update(key: K, fn: (current: V) => V): Promise<V>
 
 ---
 
-## 4. 本项目的数据设计
+## 4. 本项目的数据设计（storage 层视角）
 
-业务数据只存 `entries` 与 `tasks` 两表，完整字段以 `00-architecture.md` §3 与 `host/domain.js` 为准：
+条目/任务的字段全集、类别规则、`lock` 语义与导入导出语义的**域模型权威是 `00` §3**；本节只记录它们在 storage 层的落点与序列化事实（domain 声明见 `host/domain.js`）：
 
-| 事实 | 落点 | 规则 |
+| 存储位置 | 内容 | 规则 |
 |---|---|---|
-| 日历占时事项 | `entries` | 所有来源共用标题/起止/类别/地点/锁；导入教学安排用 `course`（课程），已删类别由来源快照归 `other` |
-| 截止与完成状态 | `tasks` | 任务不占日历时间；`entryId` 可关联条目 |
-| 类别定义与顺序 | `global.categories` | `{id,name,color}` 数组；稳定 id、`#RRGGBB`；默认七项见 `00` §3.3，已有配置不补回预设 |
-| 类别迁移版本 | `global.categoryModelVersion` | 当前为 `1`，与 `entryModelVersion: 2` 独立 |
-| 学期第一周周一 | `global.termStart` | 用于教学周标签与导入时日期换算，不在读取时扩展安排 |
-| 学号、公告版本等来源私有状态 | `global.sourceState.<source>` | 核心只存 JSON；密码、Cookie jar 不持久化 |
-| 提醒提前量 | 插件 `Config` + `entries/tasks.remindLead` | 全局四档默认；`remindLead` 为可空分钟覆盖（0–10080，null 跟随默认）；不保存“是否提醒”业务字段 |
+| `entries` 表 | 日历占时事项 | 所有来源共用同一字段模型（`00` §3）；导入教学安排用 `course` |
+| `tasks` 表 | 截止与完成状态 | 任务不占日历时间；`entryId` 可关联条目 |
+| `global.categories` | 有序类别定义 | `{id,name,color}` 数组，稳定 id、`#RRGGBB`；默认七项与增删规则见 `00` §3.3 |
+| `global.categoryModelVersion` | 类别迁移版本 | 当前 `1`，与 `entryModelVersion: 2` 独立（迁移语义见 `00` §3） |
+| `global.termStart` | 学期第一周周一 | 用于教学周标签与导入时日期换算，不在读取时扩展安排 |
+| `global.sourceState.<source>` | 来源私有状态 | 核心只存 JSON 字符串、保证往返，不解释内容（字段由来源自定，见 `11` §3）；密码、Cookie jar 不持久化 |
+| 插件 `Config` + `entries/tasks.remindLead` | 提醒提前量 | 全局四档默认；`remindLead` 为可空分钟覆盖（0–10080，null 跟随默认）；不保存"是否提醒"业务字段 |
 
-设计要点：
+storage 层要点：
 
 1. **时区只有一种语义**：带偏移 ISO 8601，schema 明确校验。
-2. **归属不是类型**：`source` / `sourceKey` 是可选来源身份。完整快照使用 `replaceSourceEntries`，稳定键保留 ID，预校验失败不开始写入（见 `11` §2）。
-3. **锁仅限制快捷拖动**：`location` 是可空字符串，`lock` 默认 `false`；锁定不拒绝普通编辑、删除或 CLI 更新。
-4. **启动时一次转换**：按存量实际周次生成带日期的条目，保留改期、跳过取消项；缺学期起点就明确失败且不删除原始数据。完成标记为 `entryModelVersion: 2`。这不是旧 API/旧 JSON 的持续兼容面，备份与切换见 `13-entry-model.md`。
-5. **导出/导入只认当前格式**：主体 `global`、`entries`、`tasks`，接受 UI 的 `exportedAt`；类别列表往返保留。空白目标采用导入定义；已有数据目标保留原定义，同 id 同名同色复用，冲突新建 id 并重映射导入条目，重试复用已生成的等价定义；原 `other` 在已有数据目标保留为兜底。清空仅删两张业务表并保留设置。
-6. **类别专用写面**：`setCategories` 验证完整有序列表，`other` 名称固定“其它”、不可删但可改色；删除任意其它预设/自定义类别时仅重归现有条目，来源快照不会恢复预设。`setMeta` 不写类别，手工未知 id 拒绝、来源未知 id 归 `other`。
-7. **独立类别迁移**：旧 BUAA `teaching:` 条目仅在 `study` 时改 `course`，手工学习不变；旧周规则直接生成 `course`。过渡 schema 显式保留 `categories/categoryModelVersion`，标记最后持久化，失败重试安全。
-8. **提醒无持久业务状态**：`upcomingReminders()` 现算，页面通知与可选桌宠桥读取同一集合。浏览器去重只存 localStorage，不是另一份业务数据。
+2. **归属不是类型**：`source` / `sourceKey` 只记录身份，不派生另一种存储模型；完整来源快照的写入契约见 `11` §2。
+3. **启动时一次性存量转换**：`host/migrate.js` 按存量实际周次生成带日期的条目，保留改期、跳过取消项，完成后写 `entryModelVersion: 2`；缺学期起点就明确失败且不删除原始数据。无旧 API/旧 JSON 持续兼容面；迁移与备份边界见 `00` §3。
+4. **提醒无持久业务状态**：`upcomingReminders()` 现算（机制见 `05` §4），页面通知与桌宠桥读同一集合；浏览器侧去重只存 localStorage，不是另一份业务数据。
 
 ---
 

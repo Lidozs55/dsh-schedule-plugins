@@ -1,7 +1,7 @@
 # 11 · 来源适配器契约（新增学校/导入格式）
 
 > 一句话：**核心 `@lidozs55/dsh-schedule` 拥有日程真相，来源插件只拥有"怎么把外部数据变成核心写调用"。**
-> 本仓库有两个实现：北航教务 `@buaaer/dsh-schedule-buaa`（课程/考试条目、考试与作业任务、远程签到）与二游前瞻
+> 本仓库有两个实现：北航教务 `@lidozs55/dsh-schedule-buaa`（课程/考试条目、考试与作业任务、远程签到）与二游前瞻
 > `@lidozs55/dsh-schedule-gacha`（条目，见 `12-gacha-preview.md`）；前者适合当模板。
 
 ---
@@ -12,7 +12,7 @@
 @lidozs55/dsh-schedule          （核心：数据/服务/UI/提醒/通用命令）
         ▲              ▲
         │              │
-@buaaer/dsh-schedule-buaa   @lidozs55/dsh-schedule-gacha
+@lidozs55/dsh-schedule-buaa   @lidozs55/dsh-schedule-gacha
 （北航来源适配器）           （二游前瞻，定时刷新）
 ```
 

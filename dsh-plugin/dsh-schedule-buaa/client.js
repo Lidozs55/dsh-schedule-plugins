@@ -1,5 +1,5 @@
 /**
- * Client half of @buaaer/dsh-schedule-buaa. Contributes the BUAA cards into
+ * Client half of @lidozs55/dsh-schedule-buaa. Contributes the BUAA cards into
  * the core's 日程设置 page (`schedule.settings.blocks`) and a remote check-in
  * action into the core's entry editor (`schedule.entry.actions`), so the user
  * sees one settings section and one entry dialog no matter how many sources
@@ -7,7 +7,7 @@
  * this bundle depends on.
  */
 window.__ModuleLoader__.load({
-  id: '@buaaer/dsh-schedule-buaa',
+  id: '@lidozs55/dsh-schedule-buaa',
   factory: (require) => {
     const NS = 'buaaScheduleImport'
 

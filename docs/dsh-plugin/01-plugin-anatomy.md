@@ -173,7 +173,7 @@ cordis_inspect_query { platform: "host", provider: "Config",
 实际产物在 `dsh-plugin/` 下四个 bundle 目录（核心 `dsh-schedule/` = Host 入口 + `host/` 模块 + Client 入口 + `client.*.js` 分块；其余见 `00-architecture.md` §1 代码地图）。本仓库的约定：
 
 - 文档放 `docs/dsh-plugin/`；旧实现（`electron/`、`backend/`、`frontend/`）已删除，仓库现在只有 `docs/`、`dsh-plugin/` 与仓库元信息（根 `README.md`、`package.json`）。
-- bundle 目录名/包名/row id 一旦安装就与 profile 绑定，**改名 = 重新安装**；`@lidozs55/dsh-schedule` / `schedule-core` 已定死（核心与桥原用 `@buaaer/` 前缀，与北航无关，已改为 `@lidozs55/` 并重装过一次）。
+- bundle 目录名/包名/row id 一旦安装就与 profile 绑定，**改名 = 重新安装**；本仓库四包统一 `@lidozs55/` 前缀，均已定死。
 
 ---
 

@@ -1,5 +1,5 @@
 /**
- * Host half of @buaaer/dsh-schedule-buaa — the BUAA JW source adapter.
+ * Host half of @lidozs55/dsh-schedule-buaa — the BUAA JW source adapter.
  *
  * Hard dependency: `scheduleCore` (the generic schedule core). This bundle
  * owns the BUAA-specific parts (student id, SSO login, JW endpoints, SPOC

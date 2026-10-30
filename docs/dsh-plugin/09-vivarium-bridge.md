@@ -17,7 +17,7 @@
 | 插件 | 拥有 | 不拥有 |
 |---|---|---|
 | 核心 `@lidozs55/dsh-schedule` | 数据(domain)、领域服务、`schedule` CLI、UI 面板、提醒子系统(派生集与页面通知,见 `05` §4) | 桌宠概念;任何学校/导入来源 |
-| 来源适配器 `@buaaer/dsh-schedule-buaa` | 北航 SSO、整学期教务导入、`sourceState.buaa` | 日程数据副本;提醒策略;UI 面板 |
+| 来源适配器 `@lidozs55/dsh-schedule-buaa` | 北航 SSO、整学期教务导入、`sourceState.buaa` | 日程数据副本;提醒策略;UI 面板 |
 | 桥 `@lidozs55/dsh-schedule-bridge` | 跨插件 UX:提醒→桌宠 notice 气泡(任务含「已完成」快捷动作,条目仅「知道了」)、任务状态上报(基座 `tasks` 状态面)、外部文本/图片→核心待确认暂存→点「确认」新建会话、拖放会话内的提问/审批中继到桌宠并代答 | 数据副本;提醒策略与时序真相;宠物语义(逾期担忧/清空庆祝的推导归基座);自然语言解析/OCR/LLM;UI |
 
 提醒的时序真相只有一个:核心 `service.upcomingReminders()` 纯派生,任务/条目两类同权(机制见 `05` §4)。

@@ -8,12 +8,12 @@
  * to, so the user can see the import will target the right semester.
  */
 window.__ModuleLoader__.load({
-  id: '@buaaer/dsh-schedule-buaa/client.settings.js',
+  id: '@lidozs55/dsh-schedule-buaa/client.settings.js',
   factory: (require) => {
     const React = require('react')
     const { useState, useEffect } = React
     const h = React.createElement
-    const api = require('@buaaer/dsh-schedule-buaa/client.api.js')
+    const api = require('@lidozs55/dsh-schedule-buaa/client.api.js')
     // Shared tip/help UI from the core bundle. The core materializes its own
     // chunks inside its apply, so this sync `require` only sees them because
     // the entry injects the core's `scheduleShared` service — cordis holds

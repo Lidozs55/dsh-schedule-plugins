@@ -5,7 +5,7 @@
  * decoding.
  */
 window.__ModuleLoader__.load({
-  id: '@buaaer/dsh-schedule-buaa/client.api.js',
+  id: '@lidozs55/dsh-schedule-buaa/client.api.js',
   factory: () => {
     const API_PATH = '/api/buaa-schedule'
 

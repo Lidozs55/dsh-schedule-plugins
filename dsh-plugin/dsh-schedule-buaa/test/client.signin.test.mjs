@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import vm from 'node:vm'
 
-const API_ID = '@buaaer/dsh-schedule-buaa/client.api.js'
+const API_ID = '@lidozs55/dsh-schedule-buaa/client.api.js'
 const SIGNIN_PATH = new URL('../client.signin.js', import.meta.url)
 
 const chinaDate = (offsetDays = 0) => {
@@ -56,7 +56,7 @@ async function harness(api) {
   const context = vm.createContext({ window, console, Date, Intl, setTimeout, clearTimeout })
   vm.runInContext(await readFile(SIGNIN_PATH, 'utf8'), context)
   return {
-    module: modules.get('@buaaer/dsh-schedule-buaa/client.signin.js'),
+    module: modules.get('@lidozs55/dsh-schedule-buaa/client.signin.js'),
     toastCalls,
     render(component, props) {
       cursor = 0

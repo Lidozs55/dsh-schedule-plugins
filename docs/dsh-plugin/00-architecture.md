@@ -12,7 +12,7 @@
 
 - **日程核心** `dsh-plugin/dsh-schedule/`（包名 `@lidozs55/dsh-schedule`，row id
   `schedule-core`）——通用日程数据、服务、CLI、UI、提醒。不知道任何学校/导入来源。
-- **北航来源适配器** `dsh-plugin/dsh-schedule-buaa/`（`@buaaer/dsh-schedule-buaa`，
+- **北航来源适配器** `dsh-plugin/dsh-schedule-buaa/`（`@lidozs55/dsh-schedule-buaa`，
   row id `buaa-schedule`）——依赖核心注入的 `scheduleCore`，只拥有北航 SSO、
   教务同步与来源状态。
 - **二游前瞻来源** `dsh-plugin/dsh-schedule-gacha/`（`@lidozs55/dsh-schedule-gacha`，
@@ -212,7 +212,7 @@ export const inject = ['storageDomain', 'connection', 'systemPrompt']
   核心 Host 不用 timer；客户端侧 `client.js` 已声明自己的 `timer`。
 - CLI 传输层不消费任何宿主服务：`startScheduleCliServer` 只用 `ctx.logger`（可选）。
 
-**来源适配器** `@buaaer/dsh-schedule-buaa` 与 `@lidozs55/dsh-schedule-gacha` 声明
+**来源适配器** `@lidozs55/dsh-schedule-buaa` 与 `@lidozs55/dsh-schedule-gacha` 声明
 `inject = ['scheduleCore', 'connection', 'scheduleCommands', 'timer']`：`scheduleCore` 是硬依赖
 （核心未激活则 cordis park 住来源插件）；`connection` 是设置页通道；`scheduleCommands`
 是向 `schedule` CLI 注册自身命名空间的扩展点；`timer` 供 SPOC 30 分钟轮询 / 6 小时刷新。

@@ -9,12 +9,12 @@
  * therefore cannot point the button at an arbitrary course.
  */
 window.__ModuleLoader__.load({
-  id: '@buaaer/dsh-schedule-buaa/client.signin.js',
+  id: '@lidozs55/dsh-schedule-buaa/client.signin.js',
   factory: (require) => {
     const React = require('react')
     const { useState, useEffect, useRef } = React
     const h = React.createElement
-    const api = require('@buaaer/dsh-schedule-buaa/client.api.js')
+    const api = require('@lidozs55/dsh-schedule-buaa/client.api.js')
     // Core-bundle UI (the toast stack for results, the top-layer tip for the
     // hover hint). The core materializes these chunks inside its apply, so the
     // sync `require`s below only see them because the entry injects the core's

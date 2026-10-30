@@ -42,7 +42,7 @@ async function sourceApp(source, initial, options = {}) {
       return { json: async () => ({ ok: true, value: state }) }
     },
   })
-  const prefix = source === 'buaa' ? '@buaaer' : '@lidozs55'
+  const prefix = '@lidozs55'
   const base = new URL(`../../dsh-schedule-${source}/`, import.meta.url)
   if (source === 'buaa') vm.runInContext(await readFile(new URL('client.api.js', base), 'utf8'), context)
   vm.runInContext(await readFile(new URL('client.settings.js', base), 'utf8'), context)

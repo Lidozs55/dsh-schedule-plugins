@@ -1,5 +1,5 @@
 {
-  "name": "@buaaer/dsh-schedule-buaa",
+  "name": "@lidozs55/dsh-schedule-buaa",
   "version": "0.2.0",
   "description": "BUAA source adapter for the DSH schedule core: whole-term timetable and exams, SPOC homework tasks, Boya courses and iclass remote sign-in.",
   "license": "MIT",

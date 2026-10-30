@@ -1,7 +1,7 @@
 # DSH 插件开发文档
 
-本目录是 BUAAer 智能日程的 DSH/Cordis 插件开发文档。当前由四个 bundle 组成：日程核心
-`@lidozs55/dsh-schedule`、北航来源适配器 `@buaaer/dsh-schedule-buaa`、桌宠桥
+本目录是智能日程（通用日程软件）的 DSH/Cordis 插件开发文档。当前由四个 bundle 组成：日程核心
+`@lidozs55/dsh-schedule`、北航来源适配器 `@lidozs55/dsh-schedule-buaa`、桌宠桥
 `@lidozs55/dsh-schedule-bridge`、二游前瞻来源 `@lidozs55/dsh-schedule-gacha`。
 
 写作前提：**读者此前没有接触过 DSH 插件开发**——所以这里既有"本项目长什么样"，也有"DSH 侧接口到底长什么样"。
@@ -112,9 +112,9 @@ cordis_inspect_query { platform: "client", provider: "Theme",   method: "listTok
 - 文档语言：中文；**所有标识符、签名、token 名保持英文原样**，不要翻译。
 - 旧实现（`electron/`、`backend/`、`frontend/`）已删除，迁移结论与过程记录见 git 历史。
 - 包名/row id 现已定死：核心 `@lidozs55/dsh-schedule` / `schedule-core`，北航适配器
-  `@buaaer/dsh-schedule-buaa` / `buaa-schedule`，桥 `@lidozs55/dsh-schedule-bridge` /
-  `schedule-bridge`，二游前瞻 `@lidozs55/dsh-schedule-gacha` / `gacha-schedule`；改名等于重装
-  （核心与桥原为 `@buaaer/` 前缀，与北航无关，已改到 `@lidozs55/`）。
+  `@lidozs55/dsh-schedule-buaa` / `buaa-schedule`，桥 `@lidozs55/dsh-schedule-bridge` /
+  `schedule-bridge`，二游前瞻 `@lidozs55/dsh-schedule-gacha` / `gacha-schedule`；四包统一
+  `@lidozs55/` 前缀，与来源无关；改名等于重装。
 - 不要把 DSH 侧文档整段抄进代码注释：注释写"为什么"，接口细节留给文档与 `cordis_inspect_query`。
 
 ---

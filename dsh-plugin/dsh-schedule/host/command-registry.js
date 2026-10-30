@@ -82,7 +82,6 @@ function normalizeCommand(definition, owner) {
   }
   const options = new Map()
   for (const [name, spec] of Object.entries(definition.options ?? {})) {
-    if (options.has(name)) fail('invalid_definition', `重复选项：${name}`)
     options.set(name, normalizeOption(name, spec))
   }
   const childMap = new Map()

@@ -17,6 +17,15 @@ async function sourceApp(source, initial, options = {}) {
     useRef(value) { const i = cursor++; return slots[i] ??= { current: value } },
     useEffect(fn, deps) { const i = cursor++; if (!slots[i] || deps.some((v, j) => !Object.is(v, slots[i][j]))) { slots[i] = deps; effects.push(fn) } },
   }
+  // Core-bundle seam the real bundle injects before these factories run. The
+  // fake createElement never invokes function components, so the stub marks
+  // itself and keeps the tip copy on `props.text` where assertions can read
+  // what a hover would reveal.
+  function HelpTipStub(props) {
+    return { type: 'span', props: { className: 'bsch-helptip-stub' }, children: [props.text] }
+  }
+  HelpTipStub.isHelpTipStub = true
+  modules.set('@lidozs55/dsh-schedule/client.core.js', { HelpTip: HelpTipStub })
   let state = initial
   const context = vm.createContext({
     console, Date, CustomEvent: class { constructor(type) { this.type = type } },
@@ -94,18 +103,25 @@ test('gacha switches preserve game identity and errors have alert semantics', as
   assert.ok(find(tree, n => n.props.role === 'alert' && n.children.includes('Request failed')))
 })
 
+// Visible strings plus the hover-only HelpTip copy (`props.text`), which is
+// what the copy audits below care about.
+const textOf = tree => nodes(tree).flatMap(n => [
+  ...n.children.filter(c => typeof c === 'string'),
+  ...(typeof n.props.text === 'string' ? [n.props.text] : []),
+]).join(' ')
+
 test('BUAA explains automatic homework refresh and where to check in for each session state', async () => {
   for (const locale of ['zh', 'en']) {
     for (const connected of [false, true]) {
       const session = connected ? { username: 'test-student', termName: '2026 秋季' } : null
       const app = await sourceApp('buaa', { ...buaaState, spocSession: session, signinSession: session }, { locale })
-      const text = nodes(app.render()).flatMap(n => n.children.filter(c => typeof c === 'string')).join(' ')
+      const text = textOf(app.render())
       assert.match(text, locale === 'zh' ? /30 分钟/ : /30 minutes/)
       assert.match(text, locale === 'zh' ? /同名手建待办.*截止时间/ : /matching manual tasks.*due dates/i)
       assert.match(text, locale === 'zh' ? /当天.*课程条目/ : /today.*course entries/)
     }
     const disabled = await sourceApp('buaa', { ...buaaState, spocEnabled: false }, { locale })
-    const text = nodes(disabled.render()).flatMap(n => n.children.filter(c => typeof c === 'string')).join(' ')
+    const text = textOf(disabled.render())
     assert.match(text, locale === 'zh' ? /保留已有待办/ : /existing tasks are kept/i)
   }
 })
@@ -114,13 +130,15 @@ test('gacha explains estimates and correction submission without remote impact d
   for (const locale of ['zh', 'en']) {
     const app = await sourceApp('gacha', gachaState, { locale })
     const tree = app.render()
-    const hint = find(tree, n => n.props.id === 'bsch-gacha-agent-hint')
-    assert.ok(hint)
-    assert.equal(hint.children[0], locale === 'zh'
-      ? '官方时间校正会提交至数据源服务器。'
-      : 'Official-time corrections are submitted to the data source server.')
-    assert.doesNotMatch(hint.children[0], /所有用户|不只本机|公共|all users|shared|not just/i)
-    assert.equal(find(tree, n => n.type === 'button' && n.children.includes(app.module[locale]['settings.agent'])).props['aria-describedby'], hint.props.id)
+    // The merged header tip carries the data-source, cadence and correction
+    // explanations that used to be three always-on hint rows.
+    const tip = find(tree, n => n.type?.isHelpTipStub === true)
+    assert.ok(tip)
+    assert.match(tip.props.text, /gacha-calendar/)
+    assert.match(tip.props.text, locale === 'zh'
+      ? /官方时间校正会提交至数据源服务器/
+      : /submitted to the data source server/i)
+    assert.doesNotMatch(tip.props.text, /所有用户|不只本机|公共|all users|shared|not just/i)
     assert.match(app.module[locale]['settings.hint'], /gacha-calendar.*≈/)
   }
 })

@@ -96,7 +96,12 @@ window.__ModuleLoader__.load({
       return toastHost
     }
 
-    const showToast = (title, body) => {
+    /**
+     * In-page toast on the shared bottom-right stack (works on desktop hosts
+     * without browser notifications). Reminder polling uses the default
+     * duration; other surfaces (e.g. source entry actions) pass their own.
+     */
+    const showToast = (title, body, duration = TOAST_MS) => {
       try {
         const host = ensureToastHost()
         const toast = document.createElement('div')
@@ -110,7 +115,7 @@ window.__ModuleLoader__.load({
         text.textContent = body
         toast.append(heading, text)
         host.append(toast)
-        window.setTimeout(() => toast.remove(), TOAST_MS)
+        window.setTimeout(() => toast.remove(), duration)
       } catch { /* DOM gone: nothing to show */ }
     }
 
@@ -183,6 +188,7 @@ window.__ModuleLoader__.load({
 
     return {
       startReminderNotifications,
+      toast: showToast,
       notificationStatus,
       requestBrowserNotifications,
       formatReminder: format,

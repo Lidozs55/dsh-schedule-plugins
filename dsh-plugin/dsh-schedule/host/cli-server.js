@@ -21,6 +21,8 @@ import { createServer } from 'node:http'
 import { homedir } from 'node:os'
 import { delimiter, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+// Aliased: this module's own `fail` writes an HTTP error response instead.
+import { fail as throwCoded } from './model.js'
 
 export const CLI_API_VERSION = 1
 const MAX_BODY_BYTES = 5 * 1024 * 1024
@@ -116,7 +118,7 @@ async function readJsonBody(req) {
   for await (const chunk of req) {
     size += chunk.length
     if (size > MAX_BODY_BYTES) {
-      throw Object.assign(new Error('请求体过大'), { code: 'body_too_large' })
+      throwCoded('body_too_large', '请求体过大')
     }
     chunks.push(chunk)
   }

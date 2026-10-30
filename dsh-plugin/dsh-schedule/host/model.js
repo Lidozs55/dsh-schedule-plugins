@@ -20,9 +20,14 @@ export const DEFAULT_CATEGORIES = Object.freeze([
 
 export const cloneCategories = (categories = DEFAULT_CATEGORIES) => categories.map(category => ({ ...category }))
 
+/** Throw an Error carrying a machine-readable `code` — the one construction habit for host modules. */
+export const fail = (code, message) => {
+  throw Object.assign(new Error(message), { code })
+}
+
 /** Shared by API writes, backup imports and persisted global validation. */
 export function validateCategories(categories) {
-  const invalid = message => { throw Object.assign(new Error(message), { code: 'invalid_input' }) }
+  const invalid = message => fail('invalid_input', message)
   if (!Array.isArray(categories)) invalid('categories 必须是数组')
   const ids = new Set()
   const result = categories.map(category => {

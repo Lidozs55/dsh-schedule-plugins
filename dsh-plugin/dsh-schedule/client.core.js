@@ -19,20 +19,21 @@ window.__ModuleLoader__.load({
       'toolbar.prevDay': '上一天', 'toolbar.nextDay': '下一天',
       'toolbar.day': '日', 'toolbar.week': '周',
       'toolbar.dayView': '日视图（单列）', 'toolbar.weekView': '周视图（7 列）',
-      'toolbar.newEntry': '新建条目', 'toolbar.undo': '向后', 'toolbar.redo': '向前',
+      'toolbar.newEntry': '新建条目', 'toolbar.undo': '撤销', 'toolbar.redo': '重做',
       'toolbar.batch': '批量',
       'minical.title': '快速跳转', 'minical.month': '{year}年{month}月',
+      'dt.weekdays': '日,一,二,三,四,五,六', 'dt.today': '今天',
+      'dt.prevMonth': '上一月', 'dt.nextMonth': '下一月',
       'batch.title': '批量新建日程', 'batch.repeat': '重复',
       'batch.daily': '每天', 'batch.weekly': '指定星期几', 'batch.weekdays': '重复的星期几',
       'batch.startDate': '开始日期', 'batch.endDate': '结束日期',
       'batch.startTime': '开始时间', 'batch.endTime': '结束时间',
-      'batch.hint': '将在指定日期范围内按重复规则逐日创建日程。',
       'batch.count': '将创建 {count} 条日程',
       'batch.created': '批量创建完成：成功 {ok} 条，失败 {fail} 条',
       'batch.create': '批量创建', 'batch.creating': '创建中…',
       'batch.emptyRange': '请选择有效的日期范围与重复规则', 'batch.badRange': '结束时间需晚于开始时间',
       'week.prefix': '第', 'week.suffix': '教学周', 'week.unknown': '未设学期起点',
-      'strip.upcoming': '24h 内到期', 'strip.empty': '近 24 小时没有到期任务',
+      'strip.upcoming': '24 小时内到期', 'strip.empty': '近 24 小时没有到期任务',
       'grid.newEvent': '新建事件', 'grid.jumpTo': '跳到这天', 'grid.today': '今天',
       'entry.title': '标题', 'entry.category': '类别', 'entry.start': '开始', 'entry.end': '结束',
       'entry.location': '地点', 'entry.lock': '锁定（不可拖动）',
@@ -47,15 +48,14 @@ window.__ModuleLoader__.load({
       'task.filter': '状态', 'task.all': '全部', 'task.pending': '待完成', 'task.allPriorities': '全部优先级',
       'task.overdue': '已过期', 'task.today': '今日', 'task.week': '本周', 'task.later': '以后',
       'task.done': '已完成', 'task.progress': '今日进度',
-      'task.empty': '暂无任务。点右上角「+ 新建任务」，或在日历空白处单击落一个草稿。',
-      'confirm.deleteTitle': '确认删除', 'confirm.deleteEntry': '删除条目「{title}」？此操作不可撤销。',
+      'task.empty': '暂无任务，点右上角「+ 新建任务」创建。',
+      'confirm.deleteTitle': '确认删除', 'confirm.deleteEntry': '删除条目「{title}」？可通过「撤销」恢复。',
       'confirm.deleteTask': '删除任务「{title}」？此操作不可撤销。',
       'confirm.ok': '删除', 'confirm.cancel': '取消',
       'conflict.title': '时间冲突', 'conflict.proceed': '仍要保存',
       'clipboard.title': '剪贴板队列', 'clipboard.add': '添加一条', 'clipboard.send': '发送到新会话',
-      'clipboard.hint': '自动收录剪贴板文本；也可以添加图片附件。发送到新会话后由 Agent 解析并调用 sched 工具落库。',
-      'clipboard.watching': '正在监听剪贴板（每 5 秒检测一次，重复内容不会重复入队）。',
-      'clipboard.attach': '添加图片', 'clipboard.attachHint': '可添加 PNG / JPEG / WebP / GIF 图片作为附件，或把图片文件拖到此面板。',
+      'clipboard.hint': '复制的内容会自动出现在这里，也可以添加图片。点「发送到新会话」后，AI 会读取这些内容，把其中的安排和待办写入日程；重复内容只收录一次。',
+      'clipboard.attach': '添加图片', 'clipboard.attachHint': '支持 PNG / JPEG / WebP / GIF；也可把图片文件拖到此面板。',
       'clipboard.image': '图片', 'clipboard.imageAdded': '已添加 {count} 张图片',
       'clipboard.imageType': '只支持 PNG / JPEG / WebP / GIF 图片',
       'clipboard.imageTooLarge': '图片「{name}」超过 {limit} MB，未加入队列',
@@ -72,27 +72,29 @@ window.__ModuleLoader__.load({
       'settings.saveCategories': '保存类别', 'settings.newCategory': '新类别',
       'settings.categoryName': '类别名称', 'settings.categoryColor': '颜色',
       'settings.categoryHint': '删除类别后，已有日程归入「其它」。',
-      'settings.deleteCategoryHint': '保存删除“{name}”后，已有条目会重新归类至其它。',
+      'settings.deleteCategoryHint': '删除「{name}」后，已有条目会归入「其它」；点「保存类别」后生效。',
       'settings.otherProtected': '其它不可删除', 'settings.categoryNameRequired': '类别名称不能为空',
       'settings.unsaved': '有未保存修改',
       'settings.termHint': '第一周周一；留空不显示教学周。',
       'settings.saved': '已保存',
       'settings.backup': '备份与恢复', 'settings.clearTitle': '清空数据',
-      'settings.backupHint': '导入会合并并跳过同名同时间数据，不覆盖已有内容；备份不含学号、来源设置或登录会话。',
+      'settings.backupHint': '导出全部日程与任务为 JSON 文件；导入时同名同时间的内容会跳过，不覆盖已有数据。备份不含学号、来源设置或登录会话。',
       'settings.dataTitle': '数据管理', 'settings.export': '导出 JSON', 'settings.import': '导入 JSON',
       'settings.imported': '导入完成：{summary}', 'settings.importFail': '导入失败：{message}',
+      'settings.importSummary': '条目 {entries}（跳过 {skippedEntries}），任务 {tasks}（跳过 {skippedTasks}）',
       'settings.clearAll': '清除全部日程数据',
-      'settings.clearAllHint': '删除所有日程与任务，不可撤销，建议先备份。设置保留，来源同步仍会运行；若不希望重新生成数据，请先关闭相应同步。',
+      'settings.clearAllShort': '删除所有日程与任务，不可撤销。',
+      'settings.clearAllMore': '设置会保留，来源同步仍会继续写入；如不希望数据被重新生成，请先关闭对应来源的同步。',
+      'settings.clearAllHint': '设置会保留，来源同步仍会继续写入；如不希望数据被重新生成，请先关闭对应来源的同步。',
       'settings.clearAllConfirm': '清空', 'settings.clearedAll': '已清除 {count} 条日程数据',
       'notify.taskTitle': '任务提醒', 'notify.entryTitle': '日程提醒',
       'notify.taskBody': '「{title}」将于 {time} 截止',
       'notify.entryBody': '「{title}」将于 {time} 开始{location}',
       'notify.entryAllDay': '「{title}」{date} 全天{location}',
-      'notify.toastHint': '开启浏览器通知可在页面切到后台时收到提醒',
       'state.error': '出错了：{message}', 'state.loading': '加载中…', 'state.retry': '重试',
       'cat.course': '课程', 'cat.homework': '作业', 'cat.exam': '考试', 'cat.meeting': '会议',
       'cat.study': '学习', 'cat.sports': '运动', 'cat.other': '其它',
-      'type.homework': '作业', 'type.exam': '考试', 'type.lecture': '听课', 'type.other': '其他',
+      'type.homework': '作业', 'type.exam': '考试', 'type.lecture': '听课', 'type.other': '其它',
       'prio.high': '高', 'prio.medium': '中', 'prio.low': '低',
     }
     const en = {
@@ -102,20 +104,21 @@ window.__ModuleLoader__.load({
       'toolbar.prevDay': 'Prev day', 'toolbar.nextDay': 'Next day',
       'toolbar.day': 'Day', 'toolbar.week': 'Week',
       'toolbar.dayView': 'Day view (single column)', 'toolbar.weekView': 'Week view (7 columns)',
-      'toolbar.newEntry': 'New entry', 'toolbar.undo': 'Back', 'toolbar.redo': 'Forward',
+      'toolbar.newEntry': 'New entry', 'toolbar.undo': 'Undo', 'toolbar.redo': 'Redo',
       'toolbar.batch': 'Batch',
       'minical.title': 'Quick jump', 'minical.month': '{month}/{year}',
+      'dt.weekdays': 'Su,Mo,Tu,We,Th,Fr,Sa', 'dt.today': 'Today',
+      'dt.prevMonth': 'Previous month', 'dt.nextMonth': 'Next month',
       'batch.title': 'Batch-create entries', 'batch.repeat': 'Repeat',
       'batch.daily': 'Every day', 'batch.weekly': 'Chosen weekdays', 'batch.weekdays': 'Weekdays to repeat',
       'batch.startDate': 'Start date', 'batch.endDate': 'End date',
       'batch.startTime': 'Start time', 'batch.endTime': 'End time',
-      'batch.hint': 'Creates one entry per matching day inside the date range.',
       'batch.count': 'Will create {count} entries',
       'batch.created': 'Batch done: {ok} created, {fail} failed',
       'batch.create': 'Create all', 'batch.creating': 'Creating…',
       'batch.emptyRange': 'Pick a valid date range and repeat rule', 'batch.badRange': 'End time must be after start time',
       'week.prefix': 'Week', 'week.suffix': '', 'week.unknown': 'No term start set',
-      'strip.upcoming': 'Due in 24h', 'strip.empty': 'Nothing due in the next 24 hours',
+      'strip.upcoming': 'Due in the next 24 hours', 'strip.empty': 'Nothing due in the next 24 hours',
       'grid.newEvent': 'New event', 'grid.jumpTo': 'Jump to this day', 'grid.today': 'Today',
       'entry.title': 'Title', 'entry.category': 'Category', 'entry.start': 'Start', 'entry.end': 'End',
       'entry.location': 'Location', 'entry.lock': 'Locked (no dragging)',
@@ -130,15 +133,14 @@ window.__ModuleLoader__.load({
       'task.filter': 'Status', 'task.all': 'All', 'task.pending': 'Pending', 'task.allPriorities': 'All priorities',
       'task.overdue': 'Overdue', 'task.today': 'Today', 'task.week': 'This week', 'task.later': 'Later',
       'task.done': 'Completed', 'task.progress': 'Today',
-      'task.empty': 'No tasks yet. Use "+ New task" above, or click empty calendar space to draft an entry.',
-      'confirm.deleteTitle': 'Confirm deletion', 'confirm.deleteEntry': 'Delete entry "{title}"? This cannot be undone.',
+      'task.empty': 'No tasks yet. Use “+ New task” above to create one.',
+      'confirm.deleteTitle': 'Confirm deletion', 'confirm.deleteEntry': 'Delete entry "{title}"? You can restore it with Undo.',
       'confirm.deleteTask': 'Delete task "{title}"? This cannot be undone.',
       'confirm.ok': 'Delete', 'confirm.cancel': 'Cancel',
       'conflict.title': 'Time conflict', 'conflict.proceed': 'Save anyway',
       'clipboard.title': 'Clipboard queue', 'clipboard.add': 'Add item', 'clipboard.send': 'Send to new session',
-      'clipboard.hint': 'Copying text fills this queue automatically; add image attachments too. "Send to new session" hands both to the Agent, which parses them and writes via the sched tools.',
-      'clipboard.watching': 'Watching the clipboard (checked every 5s; identical text is queued once).',
-      'clipboard.attach': 'Add images', 'clipboard.attachHint': 'Add PNG / JPEG / WebP / GIF images as attachments, or drop image files onto this panel.',
+      'clipboard.hint': 'Copied text lands here automatically; images can be added too. "Send to new session" hands the queue to the AI, which writes the plans and todos it finds into the schedule. Identical content is queued once.',
+      'clipboard.attach': 'Add images', 'clipboard.attachHint': 'Supports PNG / JPEG / WebP / GIF; you can also drop image files onto this panel.',
       'clipboard.image': 'Image', 'clipboard.imageAdded': 'Added {count} image(s)',
       'clipboard.imageType': 'Only PNG / JPEG / WebP / GIF images are supported',
       'clipboard.imageTooLarge': 'Image "{name}" exceeds {limit} MB and was not added',
@@ -155,23 +157,25 @@ window.__ModuleLoader__.load({
       'settings.saveCategories': 'Save categories', 'settings.newCategory': 'New category',
       'settings.categoryName': 'Category name', 'settings.categoryColor': 'Color',
       'settings.categoryHint': 'Entries in deleted categories move to Other.',
-      'settings.deleteCategoryHint': 'After saving the deletion of “{name}”, existing entries move to Other.',
+      'settings.deleteCategoryHint': 'Deleting "{name}" moves existing entries to "Other"; this takes effect when you save the categories.',
       'settings.otherProtected': 'Other cannot be deleted', 'settings.categoryNameRequired': 'Category name is required',
       'settings.unsaved': 'Unsaved changes',
       'settings.termHint': 'Monday of week 1. Leave empty to hide teaching weeks.',
       'settings.saved': 'Saved',
       'settings.backup': 'Backup & restore', 'settings.clearTitle': 'Clear data',
-      'settings.backupHint': 'Imports merge data and skip matching names and times without overwriting existing items. Backups exclude student IDs, source settings and login sessions.',
+      'settings.backupHint': 'Exports all entries and tasks as JSON; imports skip matching names and times without overwriting existing items. Backups exclude student IDs, source settings and login sessions.',
       'settings.dataTitle': 'Data management', 'settings.export': 'Export JSON', 'settings.import': 'Import JSON',
       'settings.imported': 'Import done: {summary}', 'settings.importFail': 'Import failed: {message}',
+      'settings.importSummary': 'Entries {entries} ({skippedEntries} skipped), tasks {tasks} ({skippedTasks} skipped)',
       'settings.clearAll': 'Clear all schedule data',
-      'settings.clearAllHint': 'Permanently deletes all entries and tasks. Back up first. Settings are kept and source sync continues; turn off the relevant sync switches to prevent data being recreated.',
+      'settings.clearAllShort': 'Permanently deletes all entries and tasks.',
+      'settings.clearAllMore': 'Settings are kept and source sync keeps writing; to prevent data from being recreated, turn off that source\'s sync first.',
+      'settings.clearAllHint': 'Settings are kept and source sync keeps writing; to prevent data from being recreated, turn off that source\'s sync first.',
       'settings.clearAllConfirm': 'Clear', 'settings.clearedAll': 'Cleared {count} rows',
       'notify.taskTitle': 'Task reminder', 'notify.entryTitle': 'Schedule reminder',
       'notify.taskBody': '"{title}" is due at {time}',
       'notify.entryBody': '"{title}" starts at {time}{location}',
       'notify.entryAllDay': '"{title}" is all day on {date}{location}',
-      'notify.toastHint': 'Enable browser notifications to get reminders while the page is in the background',
       'state.error': 'Error: {message}', 'state.loading': 'Loading…', 'state.retry': 'Retry',
       'cat.course': 'Course', 'cat.homework': 'Homework', 'cat.exam': 'Exam', 'cat.meeting': 'Meeting',
       'cat.study': 'Study', 'cat.sports': 'Sports', 'cat.other': 'Other',
@@ -179,8 +183,10 @@ window.__ModuleLoader__.load({
       'prio.high': 'High', 'prio.medium': 'Medium', 'prio.low': 'Low',
     }
 
-    // Defaults are only a bootstrap/legacy fallback, never merged into a
-    // configured list: a deleted preset must stay deleted.
+    // Cross-end copy of host/model.js DEFAULT_CATEGORIES — keep in sync with
+    // host/model.js (no runtime sharing between host and client). Defaults
+    // are only a bootstrap/legacy fallback, never merged into a configured
+    // list: a deleted preset must stay deleted.
     const DEFAULT_CATEGORIES = [
       { id: 'course', name: '课程', color: '#3B82F6' },
       { id: 'homework', name: '作业', color: '#F59E0B' },
@@ -210,6 +216,24 @@ window.__ModuleLoader__.load({
     async function currentCategoryInputs(api, inputs) {
       const categories = typeof api.snapshot === 'function' ? (await api.snapshot()).global?.categories : undefined
       return inputs.map(input => ({ ...input, category: categoryId(input.category, categories) }))
+    }
+
+    /** Recreate entries for an undo/redo step: batch-create with conflicts
+     *  allowed; on partial failure delete whatever was restored, refresh,
+     *  and rethrow so the undo stack keeps the step retryable. Returns the
+     *  restored ids (fresh — ids are never stable across recreate cycles). */
+    async function recreateEntries(api, inputs, refresh, t) {
+      const results = await api.batchCreateEntries(await currentCategoryInputs(api, inputs), { allowConflicts: true })
+      const restoredIds = results.filter(row => row.ok).map(row => row.id)
+      const failed = results.find(row => !row.ok)
+      if (failed) {
+        // Do not duplicate partial restores; the undo step stays retryable.
+        if (restoredIds.length) await api.deleteEntry(restoredIds)
+        await refresh()
+        throw new Error(failed.message ?? t('entry.restoreFailed'))
+      }
+      await refresh()
+      return restoredIds
     }
 
     // -- time helpers (the one canonical copy; chunks import from here) --
@@ -427,7 +451,9 @@ window.__ModuleLoader__.load({
     function Modal({ title, onClose, children }) {
       useEffect(() => {
         const onKey = event => {
-          if (event.key === 'Escape') onClose()
+          // A nested popover (select/date/time) consumes Escape first and
+          // preventDefaults it; only a bare Escape closes the dialog.
+          if (event.key === 'Escape' && !event.defaultPrevented) onClose()
         }
         window.addEventListener('keydown', onKey)
         return () => window.removeEventListener('keydown', onKey)
@@ -449,13 +475,278 @@ window.__ModuleLoader__.load({
     const field = (labelText, input) =>
       h('div', { className: 'bsch-field' }, h('label', null, labelText), input)
 
+    // -- hover tips ---------------------------------------------------------------
+    // The tip is promoted to the document's TOP LAYER via the Popover API:
+    // host surfaces (the settings page, dialogs, overlays) sit in their own
+    // stacking contexts that a body-appended fixed element cannot reliably
+    // rise above — the top layer is above every one of them by definition,
+    // and immune to scroll-container clipping. Engines without the API fall
+    // back to plain body-fixed placement.
+    let tipEl = null
+    const hideTip = () => {
+      if (tipEl === null) return
+      try { if (tipEl.matches(':popover-open')) tipEl.hidePopover() } catch { /* not shown */ }
+      tipEl.remove()
+      tipEl = null
+    }
+    const showTip = (anchor, text) => {
+      hideTip()
+      if (!text || anchor === null || anchor === undefined || !anchor.isConnected) return
+      const tip = document.createElement('div')
+      tip.className = 'bsch-tip'
+      tip.setAttribute('role', 'tooltip')
+      tip.textContent = text
+      if (typeof tip.showPopover === 'function') tip.popover = 'manual'
+      document.body.append(tip)
+      if (tip.popover === 'manual') {
+        try { tip.showPopover() } catch { /* already shown */ }
+      }
+      tip.style.width = `${Math.min(300, window.innerWidth - 24)}px`
+      const rect = anchor.getBoundingClientRect()
+      const box = tip.getBoundingClientRect()
+      const left = Math.min(Math.max(12, rect.left + rect.width / 2 - box.width / 2), window.innerWidth - 12 - box.width)
+      const top = rect.bottom + box.height + 18 > window.innerHeight
+        ? rect.top - box.height - 6
+        : rect.bottom + 6
+      tip.style.left = `${left}px`
+      tip.style.top = `${Math.max(12, top)}px`
+      tipEl = tip
+    }
+
+    /**
+     * A small "?" that expands low-frequency explanation on hover/focus.
+     * Pure presentation; placement and clipping are `showTip`'s job.
+     */
+    function HelpTip({ text, label }) {
+      const ref = useRef(null)
+      useEffect(() => {
+        const el = ref.current
+        if (el === null || !text) return undefined
+        const enter = () => showTip(el, text)
+        const leave = () => hideTip()
+        el.addEventListener('pointerenter', enter)
+        el.addEventListener('pointerleave', leave)
+        el.addEventListener('focusin', enter)
+        el.addEventListener('focusout', leave)
+        return () => {
+          el.removeEventListener('pointerenter', enter)
+          el.removeEventListener('pointerleave', leave)
+          el.removeEventListener('focusin', enter)
+          el.removeEventListener('focusout', leave)
+          hideTip()
+        }
+      }, [text])
+      if (!text) return null
+      return h('button', {
+        type: 'button', className: 'bsch-helptip-btn', ref, 'aria-label': label ?? text,
+      }, '?')
+    }
+
+    // -- form popovers -----------------------------------------------------------
+    // Native <option> cannot carry a color dot and datetime-local renders as a
+    // bare OS control, so the editors use these popover-based controls. All of
+    // them anchor to .bsch-selectbox; before opening they measure against the
+    // nearest clipping ancestor (the modal scrolls) and flip up / right-align
+    // when the popover would not fit below/left-anchored.
+
+    const measureAnchor = (anchor, width) => {
+      const rect = anchor?.getBoundingClientRect()
+      if (rect == null) return { up: false, right: false }
+      let box = anchor.parentElement
+      while (box != null && box !== document.body) {
+        const style = window.getComputedStyle(box)
+        if (/(auto|scroll|hidden)/.test(`${style.overflow}${style.overflowX}${style.overflowY}`)) break
+        box = box.parentElement
+      }
+      const limit = (box ?? document.documentElement).getBoundingClientRect()
+      return {
+        up: rect.bottom + 300 > limit.bottom && rect.top - limit.top > 320,
+        right: rect.left + width > limit.right - 8,
+      }
+    }
+
+    /** Single-choice dropdown. `options`: `{ value, label, color? }[]`. */
+    function Select({ value, options, onChange, ariaLabel }) {
+      const root = useRef(null)
+      const [open, setOpen] = useState(false)
+      const [up, setUp] = useState(false)
+      const [active, setActive] = useState(-1)
+      const current = options.find(option => option.value === value) ?? options[0]
+      const close = () => { setOpen(false); setActive(-1) }
+      const toggle = () => {
+        if (open) { close(); return }
+        setUp(measureAnchor(root.current, 240).up)
+        setOpen(true)
+      }
+      const pick = option => { close(); if (option.value !== value) onChange(option.value) }
+      const onKeyDown = event => {
+        if (event.key === 'Escape') { if (open) { event.preventDefault(); close() } return }
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+          event.preventDefault()
+          if (!open) { setUp(measureAnchor(root.current, 240).up); setOpen(true); setActive(0); return }
+          setActive(index => {
+            const delta = event.key === 'ArrowDown' ? 1 : -1
+            const next = index === -1 ? (delta === 1 ? 0 : options.length - 1) : index + delta
+            return Math.max(0, Math.min(options.length - 1, next))
+          })
+        } else if ((event.key === 'Enter' || event.key === ' ') && open) {
+          event.preventDefault()
+          const option = options[active] ?? current
+          if (option !== undefined) pick(option)
+        }
+      }
+      return h('div', { className: `bsch-selectbox${open ? ' is-open' : ''}${up ? ' is-up' : ''}`, ref: root },
+        h('button', {
+          type: 'button', className: 'bsch-select-btn', 'aria-haspopup': 'listbox',
+          'aria-expanded': open, 'aria-label': ariaLabel, onClick: toggle, onKeyDown,
+        },
+        current?.color ? h('span', { className: 'bsch-dot', style: { background: current.color }, 'aria-hidden': true }) : null,
+        h('span', { className: 'bsch-select-btn-label' }, current?.label ?? ''),
+        h('span', { className: 'bsch-caret', 'aria-hidden': true }, '▾')),
+        open ? h('div', { className: 'bsch-pop-mask', onClick: close }) : null,
+        open ? h('div', { className: 'bsch-select-menu', role: 'listbox', 'aria-label': ariaLabel },
+          options.map((option, index) => h('button', {
+            type: 'button', role: 'option', key: option.value,
+            'aria-selected': option.value === value,
+            className: `bsch-select-option${option.value === value ? ' is-selected' : ''}${index === active ? ' is-active' : ''}`,
+            onMouseEnter: () => setActive(index),
+            onClick: () => pick(option),
+          },
+          option.color ? h('span', { className: 'bsch-dot', style: { background: option.color }, 'aria-hidden': true }) : null,
+          h('span', { className: 'bsch-select-btn-label' }, option.label)))) : null)
+    }
+
+    /** Bare Sunday-first month grid; `onShift(delta)` moves the month.
+     *  `dots` (optional) maps a day key to `{ title, color }[]` category
+     *  dots rendered under the day number (at most three). */
+    function MonthGrid({ t, cursor, onShift, selected, onPick, plain, dots }) {
+      const first = new Date(cursor.year, cursor.month, 1)
+      const daysInMonth = new Date(cursor.year, cursor.month + 1, 0).getDate()
+      const todayKey = dateKey(new Date())
+      const cells = [
+        ...Array.from({ length: first.getDay() }, (_, i) =>
+          h('div', { key: `e${i}`, className: 'bsch-mc-day is-empty' })),
+        ...Array.from({ length: daysInMonth }, (_, i) => {
+          const key = `${cursor.year}-${pad2(cursor.month + 1)}-${pad2(i + 1)}`
+          const dayDots = (dots?.[key] ?? []).slice(0, 3)
+          return h('div', {
+            key,
+            className: ['bsch-mc-day', key === todayKey ? 'is-today' : '',
+              key === selected ? 'is-selected' : '',
+              dayDots.length ? 'has-dot' : ''].filter(Boolean).join(' '),
+            onClick: () => onPick(key),
+          }, String(i + 1),
+          dayDots.length ? h('span', { className: 'bsch-mc-dots' }, dayDots.map((dot, index) =>
+            h('span', { key: index, className: 'bsch-mc-dot', title: dot.title,
+              style: { background: dot.color } }))) : null)
+        }),
+      ]
+      return h('div', { className: plain ? 'bsch-mc bsch-mc-plain' : 'bsch-mc' },
+        h('div', { className: 'bsch-mc-head' },
+          h('button', {
+            type: 'button', className: 'bsch-btn', 'aria-label': t('dt.prevMonth'),
+            onClick: () => onShift(-1),
+          }, '‹'),
+          h('span', { className: 'bsch-mc-month' },
+            t('minical.month')
+              .replace('{year}', String(cursor.year))
+              .replace('{month}', pad2(cursor.month + 1))),
+          h('button', {
+            type: 'button', className: 'bsch-btn', 'aria-label': t('dt.nextMonth'),
+            onClick: () => onShift(1),
+          }, '›')),
+        h('div', { className: 'bsch-mc-weekdays' },
+          t('dt.weekdays').split(',').map(day => h('span', { key: day }, day))),
+        h('div', { className: 'bsch-mc-grid' }, cells))
+    }
+
+    /** `YYYY-MM-DD` chip opening the month grid plus a Today shortcut. */
+    function DateField({ t, value, onChange, ariaLabel }) {
+      const root = useRef(null)
+      const [open, setOpen] = useState(false)
+      const [up, setUp] = useState(false)
+      const [right, setRight] = useState(false)
+      const monthOf = key =>
+        ({ year: Number(key.slice(0, 4)), month: Number(key.slice(5, 7)) - 1 })
+      const [cursor, setCursor] = useState(() => monthOf(value))
+      const close = () => setOpen(false)
+      const toggle = () => {
+        if (open) { close(); return }
+        setCursor(monthOf(value))
+        const fit = measureAnchor(root.current, 260)
+        setUp(fit.up)
+        setRight(fit.right)
+        setOpen(true)
+      }
+      const today = dateKey(new Date())
+      return h('div', { className: `bsch-selectbox${open ? ' is-open' : ''}${up ? ' is-up' : ''}${right ? ' is-right' : ''}`, ref: root },
+        h('button', {
+          type: 'button', className: 'bsch-select-btn', 'aria-haspopup': 'dialog',
+          'aria-expanded': open, 'aria-label': ariaLabel, onClick: toggle,
+        },
+        h('span', { className: 'bsch-select-btn-label' }, value),
+        h('span', { className: 'bsch-caret', 'aria-hidden': true }, '▾')),
+        open ? h('div', { className: 'bsch-pop-mask', onClick: close }) : null,
+        open ? h('div', { className: 'bsch-popover bsch-cal' },
+          h(MonthGrid, {
+            t, cursor, plain: true, selected: value, onShift: delta =>
+              setCursor(current => {
+                const date = new Date(current.year, current.month + delta, 1)
+                return { year: date.getFullYear(), month: date.getMonth() }
+              }),
+            onPick: key => { close(); if (key !== value) onChange(key) },
+          }),
+          h('button', {
+            type: 'button', className: 'bsch-btn bsch-cal-today',
+            onClick: () => { close(); if (today !== value) onChange(today) },
+          }, t('dt.today'))) : null)
+    }
+
+    const HALF_HOURS = Array.from({ length: 48 }, (_, i) => `${pad2(i >> 1)}:${i % 2 ? '30' : '00'}`)
+
+    /** `HH:mm` chip: exact native time input plus half-hour quick steps. */
+    function TimeField({ value, onChange, ariaLabel }) {
+      const root = useRef(null)
+      const [open, setOpen] = useState(false)
+      const [up, setUp] = useState(false)
+      const [right, setRight] = useState(false)
+      const close = () => setOpen(false)
+      const toggle = () => {
+        if (open) { close(); return }
+        const fit = measureAnchor(root.current, 240)
+        setUp(fit.up)
+        setRight(fit.right)
+        setOpen(true)
+      }
+      return h('div', { className: `bsch-selectbox${open ? ' is-open' : ''}${up ? ' is-up' : ''}${right ? ' is-right' : ''}`, ref: root },
+        h('button', {
+          type: 'button', className: 'bsch-select-btn', 'aria-haspopup': 'dialog',
+          'aria-expanded': open, 'aria-label': ariaLabel, onClick: toggle,
+        },
+        h('span', { className: 'bsch-select-btn-label' }, value),
+        h('span', { className: 'bsch-caret', 'aria-hidden': true }, '▾')),
+        open ? h('div', { className: 'bsch-pop-mask', onClick: close }) : null,
+        open ? h('div', { className: 'bsch-timepop' },
+          h('input', {
+            type: 'time', className: 'bsch-input', value, 'aria-label': ariaLabel,
+            onChange: e => { if (e.target.value !== '') onChange(e.target.value) },
+          }),
+          h('div', { className: 'bsch-timegrid' }, HALF_HOURS.map(time => h('button', {
+            type: 'button', key: time,
+            className: `bsch-timegrid-btn${time === value ? ' is-selected' : ''}`,
+            onClick: () => { close(); if (time !== value) onChange(time) },
+          }, time)))) : null)
+    }
+
     return {
       React, h, useState, useEffect, useRef, useCallback,
       DATA_CHANGED_EVENT,
-      zh, en, DEFAULT_CATEGORIES, categoriesOrDefault, categoryId, categoryName, categoryColor, categoryStyle, CategoryPreview, currentCategoryInputs,
+      zh, en, DEFAULT_CATEGORIES, categoriesOrDefault, categoryId, categoryName, categoryColor, categoryStyle, CategoryPreview, currentCategoryInputs, recreateEntries,
       pad2, dateKey, dateToZonedIso, addDays, zonedAt,
       createApi, ApiError, useScheduleData, useUndo, notifyDataChanged,
-      Modal, ConfirmDialog, field,
+      Modal, ConfirmDialog, field, HelpTip,
+      showTip, hideTip,
+      Select, MonthGrid, DateField, TimeField,
     }
   },
 })

@@ -1,11 +1,37 @@
 {
   "name": "@lidozs55/dsh-schedule",
-  "version": "0.2.0",
-  "description": "Generic DSH schedule core: calendar entries, tasks, reminders, CLI commands and panel.",
-  "private": true,
+  "version": "0.3.0",
+  "description": "DSH schedule core: calendar entries, tasks, reminders, schedule CLI and panel.",
+  "license": "MIT",
+  "author": "Lidozs55",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lidozs55/dsh-schedule-plugins.git",
+    "directory": "dsh-plugin/dsh-schedule"
+  },
+  "bugs": "https://github.com/Lidozs55/dsh-schedule-plugins/issues",
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "cordis",
+    "schedule",
+    "calendar"
+  ],
   "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
   "bin": {
     "schedule": "./bin/schedule.js"
+  },
+  "files": [
+    "*.js",
+    "bin/",
+    "host/",
+    "cordis.patch.yml"
+  ],
+  "publishConfig": {
+    "access": "public"
   },
   "exports": {
     ".": "./index.js",

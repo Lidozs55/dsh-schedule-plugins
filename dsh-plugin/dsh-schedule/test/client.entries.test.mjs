@@ -122,6 +122,49 @@ test('entry creation defaults unlocked and submits location/lock from shared con
   assert.equal(inputs[0].lock, true)
 })
 
+test('checking all day sends day/allDay and hides the time chips', async () => {
+  const client = await clientHarness()
+  const { EventEditor } = client.module('editors')
+  const { TimeField } = client.module('core')
+  const inputs = []
+  const props = { t: key => key, initial: null, draft: entry('draft'),
+    api: { createEntry: async input => { inputs.push(input); return { id: 'created' } } },
+    onClose() {}, onSaved() {},
+  }
+  let tree = client.render(EventEditor, props)
+  assert.equal(control(tree, 'entry.allDay').props.checked, false)
+  assert.ok(find(tree, node => node.type === TimeField), 'timed drafts show time chips')
+  control(tree, 'entry.allDay').props.onChange({ target: { checked: true } })
+  tree = client.render(EventEditor, props)
+  assert.equal(control(tree, 'entry.allDay').props.checked, true)
+  assert.equal(find(tree, node => node.type === TimeField), undefined, 'all day hides time chips')
+  control(tree, 'entry.title').props.onChange({ target: { value: '校庆' } })
+  tree = client.render(EventEditor, props)
+  button(tree, 'entry.save').props.onClick()
+  await settle()
+  assert.equal(inputs[0].allDay, true)
+  assert.equal(inputs[0].day, '2026-10-21')
+})
+
+test('editing an all-day entry starts checked and resaves day/allDay', async () => {
+  const client = await clientHarness()
+  const { EventEditor } = client.module('editors')
+  const { TimeField } = client.module('core')
+  const updates = []
+  const props = { t: key => key, initial: { ...entry('allday'), allDay: true },
+    api: { updateEntry: async (id, patch) => { updates.push(patch); return { id } } },
+    onClose() {}, onSaved() {},
+  }
+  let tree = client.render(EventEditor, props)
+  assert.equal(control(tree, 'entry.allDay').props.checked, true)
+  assert.equal(find(tree, node => node.type === TimeField), undefined)
+  tree = client.render(EventEditor, props)
+  button(tree, 'entry.save').props.onClick()
+  await settle()
+  assert.equal(updates[0].allDay, true)
+  assert.equal(updates[0].day, '2026-10-21')
+})
+
 test('entry edit undo restores nullable location and lock, clearing location sends null', async () => {
   const client = await clientHarness()
   const { EventEditor } = client.module('editors')
@@ -156,7 +199,8 @@ test('locked entries remain deletable and delete undo preserves location and loc
   const props = { t: key => key, initial: { ...entry('locked', true), source: 'buaa', sourceKey: 'teaching:math:2026-10-21:08:00', allDay: true },
     api: {
       deleteEntry: async id => deleted.push(id),
-      createEntry: async input => { created.push(input); return { id: 'recreated' } },
+      // Undo recreates through the shared batch helper (core.recreateEntries).
+      batchCreateEntries: async rows => { created.push(...rows); return rows.map(() => ({ ok: true, id: 'recreated' })) },
     },
     undoApi: { push: item => undo.push(item) }, refresh: async () => {}, onClose() {}, onSaved() {},
   }
@@ -354,20 +398,22 @@ test('unlocked resize still changes duration', async () => {
 test('dynamic category options, immediate preview and deleted-category save fallback', async () => {
   const client = await clientHarness()
   const { EventEditor } = client.module('editors')
-  const { CategoryPreview } = client.module('core')
   const categories = [{ id: 'custom-design', name: '设计', color: '#DA22AA' }, { id: 'other', name: '其它', color: '#64748B' }]
   let saved
   const props = { t: key => key, initial: { ...entry('design'), category: 'custom-design' }, categories,
     api: { updateEntry: async (_, input) => { saved = input; return { id: 'design' } } }, onClose() {}, onSaved() {} }
   let tree = client.render(EventEditor, props)
-  assert.deepEqual(Array.from(control(tree, 'entry.category').children, node => node.props.value), ['custom-design', 'other'])
-  let preview = find(tree, node => node.type === CategoryPreview)
-  assert.equal(preview.type(preview.props).props.style['--bsch-block-color'], '#DA22AA')
+  // The native select became the shared Select: options with their color dots
+  // arrive as props, and the entry's category stays selected.
+  const select = () => control(tree, 'entry.category')
+  assert.deepEqual(select().props.options.map(option => option.value), ['custom-design', 'other'])
+  assert.deepEqual(select().props.options.map(option => option.color), ['#DA22AA', '#64748B'])
+  assert.equal(select().props.value, 'custom-design')
+  // A deleted category falls back to `other` for both display and save.
   props.categories = [{ ...categories[1], color: '#112233' }]
   tree = client.render(EventEditor, props)
-  assert.equal(control(tree, 'entry.category').props.value, 'other')
-  preview = find(tree, node => node.type === CategoryPreview)
-  assert.equal(preview.type(preview.props).props.style['--bsch-block-color'], '#112233')
+  assert.equal(select().props.value, 'other')
+  assert.equal(select().props.options[0].color, '#112233')
   button(tree, 'entry.save').props.onClick()
   await settle()
   assert.equal(saved.category, 'other')

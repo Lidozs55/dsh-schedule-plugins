@@ -6,7 +6,7 @@
  * --help` is the authoritative manual; the skill only tells the model how to
  * discover it.
  */
-import { PRIORITIES, REMIND_LEAD_MAX_MINUTES, TASK_TYPES } from './model.js'
+import { fail, PRIORITIES, REMIND_LEAD_MAX_MINUTES, TASK_TYPES } from './model.js'
 import { dayOfWeek, termWeek } from './semester.js'
 
 const entryResult = (entry, termStart) => ({
@@ -17,13 +17,13 @@ const entryResult = (entry, termStart) => ({
 
 const text = (value, field) => {
   if (value === undefined) return undefined
-  if (typeof value !== 'string') throw Object.assign(new Error(`${field} 必须是字符串`), { code: 'invalid_input' })
+  if (typeof value !== 'string') fail('invalid_input', `${field} 必须是字符串`)
   return value
 }
 
 const bool = (value, field) => {
   if (value === undefined) return undefined
-  if (typeof value !== 'boolean') throw Object.assign(new Error(`${field} 必须是布尔值`), { code: 'invalid_input' })
+  if (typeof value !== 'boolean') fail('invalid_input', `${field} 必须是布尔值`)
   return value
 }
 
@@ -32,10 +32,7 @@ const remindLead = value => {
   if (value === undefined) return undefined
   if (value === -1) return null
   if (!Number.isInteger(value) || value < 0 || value > REMIND_LEAD_MAX_MINUTES) {
-    throw Object.assign(
-      new Error(`remind-lead 须为 0–${REMIND_LEAD_MAX_MINUTES} 的整数分钟；-1 清除定制`),
-      { code: 'invalid_input' },
-    )
+    fail('invalid_input', `remind-lead 须为 0–${REMIND_LEAD_MAX_MINUTES} 的整数分钟；-1 清除定制`)
   }
   return value
 }
@@ -48,11 +45,11 @@ const ENTRY_FIELDS = new Set([
 /** CLI option names (kebab-case) → service entry input. */
 function entryInput(args, { extras = [] } = {}) {
   if (args === null || typeof args !== 'object' || Array.isArray(args)) {
-    throw Object.assign(new Error('条目输入必须是 JSON 对象'), { code: 'invalid_input' })
+    fail('invalid_input', '条目输入必须是 JSON 对象')
   }
   for (const key of Object.keys(args)) {
     if (!ENTRY_FIELDS.has(key) && !extras.includes(key)) {
-      throw Object.assign(new Error(`条目不支持字段 ${key}`), { code: 'invalid_input' })
+      fail('invalid_input', `条目不支持字段 ${key}`)
     }
   }
   const input = {}
@@ -102,7 +99,7 @@ const ENTRY_CREATE_OPTIONS = {
   location: { type: 'string', description: '地点；更新时传空字符串表示清除' },
   lock: {
     type: 'boolean',
-    description: '只禁止页面快捷拖动/缩放，默认 false；外部通知已确定时间的课程/考试/竞赛/预约建议加 --lock，可调整计划默认不加',
+    description: '只禁止页面快捷拖动/缩放，默认 false',
   },
   'all-day': {
     type: 'boolean',
@@ -132,10 +129,8 @@ const CONFLICT_OPTION = {
 
 const ENTRY_NOTES = [
   '写入成功即返回已持久化的完整条目（含 id/week/dayOfWeek），不需要再查一遍。',
-  '默认拒绝时间重叠；收到 ok=false + conflicts 时说明原因并询问用户，得到明确同意后才加 --allow-conflicts 重试。',
-  '--allow-conflicts 只表示允许重叠，不是用户授权本身，也不会删除或覆盖已有条目。',
+  '时间重叠默认拒绝；确认流程见 `schedule guide conflicts`。',
   '更新只传需要改变的字段；省略的字段保持原值。',
-  '--remind-lead 是单条提醒提前量（分钟）；-1 清除定制、跟随全局设定，通知仍依赖页面运行。',
 ]
 
 const TASK_NOTES = [
@@ -143,7 +138,6 @@ const TASK_NOTES = [
   'list 默认只含未完成项；查已完成必须加 --include-completed。',
   '完成不等于删除；--no-completed 可撤销完成。',
   '任务与条目的 task-id / entry-id 是独立字段，不会自动级联创建、完成或删除。',
-  '--remind-lead 是单条提醒提前量（分钟）；-1 清除定制、跟随全局设定，通知仍依赖页面运行。',
 ]
 
 export function registerCoreCommands(registry, service) {
@@ -166,7 +160,6 @@ export function registerCoreCommands(registry, service) {
           'schedule entry list',
         ],
         notes: [
-          '查一天用当天零点到次日零点；查自然周用周一零点到下周一零点。',
           '未给范围会返回全部条目，只在确需全量时使用。',
           '空列表只说明该窗口没有条目，不代表没有任务或窗口外安排。',
         ],
@@ -256,13 +249,13 @@ export function registerCoreCommands(registry, service) {
           'schedule entry batch-create --input - --allow-conflicts',
         ],
         notes: [
-          '条目 JSON 每项字段：title/start/end/category/description/location/lock/all-day/task-id/remind-lead；remind-lead=-1 清除定制。',
+          '每项字段与 create 相同（kebab-case），输入格式详见 `schedule guide bulk`。',
           '读回执 okCount/total/results；成功项含完整 entry，失败项含 conflict 原因。',
           '仅重试失败项，不要重放成功项。批量不提供事务语义，部分成功是正常结果。',
         ],
         async run(args) {
           if (!Array.isArray(args.entries) || args.entries.length === 0) {
-            throw Object.assign(new Error('entries 必须是非空数组'), { code: 'invalid_input' })
+            fail('invalid_input', 'entries 必须是非空数组')
           }
           const results = await service.batchCreateEntries(
             args.entries.map(item => entryInput(item)),
@@ -340,8 +333,8 @@ export function registerCoreCommands(registry, service) {
             default: 'medium',
             description: '优先级，默认 medium',
           },
-          description: { type: 'string', description: '备注，可省略' },
-          'entry-id': { type: 'string', description: '关联的条目 id，可省略' },
+          description: { type: 'string', description: '备注' },
+          'entry-id': { type: 'string', description: '关联的条目 id' },
           'remind-lead': {
             type: 'integer',
             description: `提醒提前分钟数（0=准时，1440=提前 1 天，最多 ${REMIND_LEAD_MAX_MINUTES}）；-1 清除定制恢复默认；省略=用默认`,
@@ -395,7 +388,10 @@ export function registerCoreCommands(registry, service) {
           },
         },
         examples: ['schedule task complete --id <id>', 'schedule task complete --id <id> --no-completed'],
-        notes: TASK_NOTES,
+        notes: [
+          '完成不等于删除；撤销完成传 --no-completed。',
+          '完成后任务默认不再出现在 task list，查已完成加 --include-completed。',
+        ],
         async run(args) {
           return service.setTaskCompleted(args.id, args.completed ?? true)
         },
@@ -455,7 +451,7 @@ export function registerCoreCommands(registry, service) {
       '- 回执中的 week 是教学周（按条目开始时间自带时区的日期计算），dayOfWeek 为周一 1 至周日 7。week=null 时不编造周次。',
       '- 用户只给“第 N 周周几”时，用 termStart（第一周周一）定位：第 N 周周一 = 起点 + 7×(N−1) 天。未知 termStart 时先从一次 entry list 取；仍为空才询问。',
       '- 只创建用户明确给出的周次、日期与重复范围；无边界先确认。CLI 不创建周期规则，需要时把重复安排展开为具体日期后 batch-create。',
-      '- 提醒提前量用 --remind-lead（分钟，0–10080）；-1 清除单条定制并跟随全局；省略不改变原值。',
+      `- 提醒提前量用 --remind-lead（分钟，0–${REMIND_LEAD_MAX_MINUTES}）；-1 清除单条定制并跟随全局；省略不改变原值。`,
     ].join('\n'),
   })
 

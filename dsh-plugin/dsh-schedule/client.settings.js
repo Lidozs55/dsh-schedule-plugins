@@ -3,7 +3,7 @@ window.__ModuleLoader__.load({
   id: '@lidozs55/dsh-schedule/client.settings.js',
   factory: (require) => {
     const core = require('@lidozs55/dsh-schedule/client.core.js')
-    const { React, h, notifyDataChanged, ConfirmDialog, categoriesOrDefault, CategoryPreview } = core
+    const { React, h, notifyDataChanged, ConfirmDialog, HelpTip, categoriesOrDefault, CategoryPreview } = core
     const { useState, useEffect, useRef } = React
 
     function SettingsSection(props) {
@@ -98,10 +98,13 @@ window.__ModuleLoader__.load({
         setBusy(true)
         try {
           const counts = await api.importData(JSON.parse(await file.text()))
-          await load()
           notifyDataChanged()
           setStatus({ ok: true, text: t('settings.imported').replace('{summary}',
-            `条目 ${counts.entries.created}（跳过 ${counts.entries.skipped}），任务 ${counts.tasks.created}（跳过 ${counts.tasks.skipped}）`) })
+            t('settings.importSummary')
+              .replace('{entries}', String(counts.entries.created))
+              .replace('{skippedEntries}', String(counts.entries.skipped))
+              .replace('{tasks}', String(counts.tasks.created))
+              .replace('{skippedTasks}', String(counts.tasks.skipped))) })
         } catch (cause) {
           setStatus({ ok: false, text: t('settings.importFail').replace('{message}', cause.message) })
         } finally { setBusy(false) }
@@ -165,20 +168,24 @@ window.__ModuleLoader__.load({
         h('section', { className: 'bsch-settings-section', 'aria-labelledby': 'bsch-data-heading' },
           h('h3', { className: 'bsch-settings-heading', id: 'bsch-data-heading' }, t('settings.dataTitle')),
           h('div', { className: 'bsch-setting-row' },
-            h('span', { className: 'bsch-setting-label' }, t('settings.backup')),
+            h('span', { className: 'bsch-setting-label' },
+              h('span', { className: 'bsch-settings-inline' },
+                h('span', null, t('settings.backup')),
+                h(HelpTip, { text: t('settings.backupHint') }))),
             h('div', { className: 'bsch-setting-control' },
               h('div', { className: 'bsch-settings-actions' },
-                h('button', { className: 'bsch-btn', disabled: busy, 'aria-describedby': 'bsch-backup-hint', onClick: () => void exportJson() }, t('settings.export')),
-                h('button', { className: 'bsch-btn', disabled: busy, 'aria-describedby': 'bsch-backup-hint', onClick: () => importInput.current?.click() }, t('settings.import')),
+                h('button', { className: 'bsch-btn', disabled: busy, onClick: () => void exportJson() }, t('settings.export')),
+                h('button', { className: 'bsch-btn', disabled: busy, onClick: () => importInput.current?.click() }, t('settings.import')),
                 h('input', {
                   ref: importInput, type: 'file', accept: 'application/json', disabled: busy, hidden: true,
                   'aria-label': t('settings.import'), onChange: e => void importJson(e),
-                })),
-              h('div', { className: 'bsch-hint', id: 'bsch-backup-hint' }, t('settings.backupHint')))),
+                })))),
           h('div', { className: 'bsch-settings-danger' },
             h('div', { className: 'bsch-settings-danger-copy' },
               h('div', { className: 'bsch-settings-danger-title' }, t('settings.clearTitle')),
-              h('div', { className: 'bsch-hint', id: 'bsch-clear-warning' }, t('settings.clearAllHint'))),
+              h('div', { className: 'bsch-hint', id: 'bsch-clear-warning' },
+                t('settings.clearAllShort'), ' ',
+                h(HelpTip, { text: t('settings.clearAllMore') }))),
             h('button', {
               className: 'bsch-btn is-danger', disabled: busy, 'aria-describedby': 'bsch-clear-warning',
               onClick: () => setConfirmClear(true),

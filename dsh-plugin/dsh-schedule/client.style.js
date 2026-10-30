@@ -17,7 +17,6 @@ window.__ModuleLoader__.load({
 .bsch-toolbar { display: flex; align-items: center; gap: 6px; padding: 6px 8px; flex-wrap: wrap; }
 .bsch-spacer { flex: 1; }
 .bsch-btn { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border: 0.5px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-sm); background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); font-size: 12px; line-height: 20px; cursor: pointer; }
-.bsch-btn:hover { background: var(--dsw-alias-bg-layer-2); }
 .bsch-btn.is-active { background: var(--dsw-alias-bg-layer-2); }
 .bsch-btn.is-primary { background: var(--dsw-alias-brand-primary); border-color: transparent; color: var(--dsw-alias-bg-base); font-weight: 500; }
 .bsch-btn.is-danger { color: var(--dsw-alias-state-error-primary); }
@@ -103,6 +102,7 @@ window.__ModuleLoader__.load({
 .bsch-textarea { line-height: 1.5; resize: vertical; }
 .bsch-input:focus, .bsch-select:focus, .bsch-textarea:focus { outline: 1.5px solid var(--dsw-alias-brand-primary); outline-offset: 0; }
 .bsch-modal-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 12px; }
+.bsch-modal-actions-group { display: flex; gap: 6px; }
 .bsch-error { color: var(--dsw-alias-state-error-primary); font-size: 12px; margin: 4px 0; white-space: pre-wrap; }
 .bsch-weekdays { display: flex; gap: 8px; flex-wrap: wrap; }
 .bsch-weekday { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; cursor: pointer; }
@@ -190,6 +190,58 @@ window.__ModuleLoader__.load({
 .bsch-category-preview { position: relative; width: auto; min-height: 30px; padding: 3px 6px; font-size: 10px; pointer-events: none; }
 .bsch-rowline { display: flex; align-items: center; gap: 8px; }
 .bsch-rowline > .bsch-input, .bsch-rowline > .bsch-select { flex: 1; }
+.bsch-rowline > .bsch-btn { flex-shrink: 0; white-space: nowrap; }
+.bsch-rowline > .bsch-hint { flex: 1; min-width: 0; }
+
+/* hover "?"/button tips: low-frequency explanations stay out of the layout.
+   showTip (client.core.js) promotes the body to the document TOP LAYER via
+   the Popover API — inset/margin neutralize the UA popover sheet so the
+   inline left/top coordinates apply; z-index only matters on engines without
+   the API. pointer-events none keeps it from stealing the hover. */
+.bsch-helptip-btn { box-sizing: border-box; flex: none; width: 15px; height: 15px; padding: 0; border: 0.5px solid var(--dsw-alias-border-l2); border-radius: 50%; background: transparent; color: var(--dsw-alias-label-secondary); font-family: inherit; font-size: 10px; line-height: 14px; text-align: center; cursor: help; }
+.bsch-helptip-btn:hover { background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-primary); }
+.bsch-tip { position: fixed; inset: auto; margin: 0; z-index: 400; box-sizing: border-box; padding: 8px 10px; border: 0.5px solid var(--dsw-alias-border-l1); border-radius: var(--dsw-radius-md); background: var(--dsw-alias-bg-base); box-shadow: var(--dsw-elevation-panel); color: var(--dsw-alias-label-primary); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; pointer-events: none; }
+
+/* form popovers: the editors' Select / DateField / TimeField. Native <option>
+   cannot carry a color dot and datetime-local is an unthemable OS control. */
+.bsch-selectbox { position: relative; display: block; min-width: 0; }
+.bsch-rowline > .bsch-selectbox { flex: 1; }
+.bsch-select-btn { display: inline-flex; align-items: center; gap: 6px; width: 100%; box-sizing: border-box; padding: 4px 8px; border: 0.5px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-sm); background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-primary); font-family: inherit; font-size: 13px; line-height: 22px; text-align: left; cursor: pointer; }
+.bsch-select-btn:hover { background: var(--dsw-alias-bg-layer-1); }
+.bsch-select-btn:focus-visible { outline: 1.5px solid var(--dsw-alias-brand-primary); outline-offset: 0; }
+.bsch-selectbox.is-open .bsch-select-btn { border-color: var(--dsw-alias-brand-primary); }
+.bsch-select-btn-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bsch-caret { flex: none; color: var(--dsw-alias-label-secondary); font-size: 10px; line-height: 1; }
+.bsch-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; }
+.bsch-select-menu { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 30; box-sizing: border-box; max-height: 236px; overflow-y: auto; padding: 4px; border: 0.5px solid var(--dsw-alias-border-l1); border-radius: var(--dsw-radius-md); background: var(--dsw-alias-bg-base); box-shadow: var(--dsw-elevation-panel); }
+.bsch-selectbox.is-up .bsch-select-menu, .bsch-selectbox.is-up .bsch-popover, .bsch-selectbox.is-up .bsch-timepop { top: auto; bottom: calc(100% + 4px); }
+.bsch-selectbox.is-right .bsch-popover, .bsch-selectbox.is-right .bsch-timepop { left: auto; right: 0; }
+.bsch-select-option { display: flex; align-items: center; gap: 6px; width: 100%; box-sizing: border-box; padding: 5px 8px; border: 0; border-radius: var(--dsw-radius-sm); background: transparent; color: var(--dsw-alias-label-primary); font-family: inherit; font-size: 13px; line-height: 20px; text-align: left; cursor: pointer; }
+.bsch-select-option:hover, .bsch-select-option.is-active { background: var(--dsw-alias-bg-layer-2); }
+.bsch-select-option.is-selected { color: var(--dsw-alias-brand-primary); font-weight: 500; }
+.bsch-mc-day.is-selected { background: var(--dsw-alias-brand-primary); color: var(--dsw-alias-bg-base); font-weight: 500; }
+.bsch-mc-plain { border: 0; box-shadow: none; padding: 0; background: transparent; }
+.bsch-cal { display: flex; flex-direction: column; gap: 6px; padding: 8px; }
+.bsch-cal-today { justify-content: center; }
+.bsch-timepop { position: absolute; top: calc(100% + 4px); left: 0; z-index: 30; box-sizing: border-box; width: 232px; padding: 8px; border: 0.5px solid var(--dsw-alias-border-l1); border-radius: var(--dsw-radius-md); background: var(--dsw-alias-bg-base); box-shadow: var(--dsw-elevation-panel); display: flex; flex-direction: column; gap: 8px; }
+.bsch-timegrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; max-height: 176px; overflow-y: auto; }
+.bsch-timegrid-btn { padding: 4px 0; border: 0.5px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-sm); background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-primary); font-family: inherit; font-size: 12px; line-height: 18px; cursor: pointer; }
+.bsch-timegrid-btn:hover { background: var(--dsw-alias-bg-layer-2); }
+.bsch-timegrid-btn.is-selected { background: var(--dsw-alias-brand-primary); border-color: transparent; color: var(--dsw-alias-bg-base); font-weight: 500; }
+
+/* interaction states — the single owner of button hover/press, after the
+   component rules so later/equal declarations win (e.g. over .is-primary's
+   background). The theme's layer-1→layer-2 step is nearly invisible over
+   the modal background, so hover/press lean on label/brand/error mixes
+   instead. :not(:disabled) keeps dead buttons inert. */
+.bsch-btn:not(:disabled):hover { background: var(--dsw-alias-bg-layer-2); border-color: color-mix(in srgb, var(--dsw-alias-label-primary) 35%, transparent); }
+.bsch-btn:not(:disabled):active { background: color-mix(in srgb, var(--dsw-alias-label-primary) 14%, transparent); border-color: color-mix(in srgb, var(--dsw-alias-label-primary) 35%, transparent); }
+.bsch-btn.is-primary:not(:disabled):hover { background: color-mix(in srgb, var(--dsw-alias-brand-primary) 88%, var(--dsw-alias-bg-base)); border-color: transparent; }
+.bsch-btn.is-primary:not(:disabled):active { background: color-mix(in srgb, var(--dsw-alias-brand-primary) 74%, var(--dsw-alias-bg-base)); border-color: transparent; }
+.bsch-btn.is-danger:not(:disabled):hover { background: color-mix(in srgb, var(--dsw-alias-state-error-primary) 12%, transparent); border-color: color-mix(in srgb, var(--dsw-alias-state-error-primary) 45%, transparent); }
+.bsch-btn.is-danger:not(:disabled):active { background: color-mix(in srgb, var(--dsw-alias-state-error-primary) 22%, transparent); }
+.bsch-tab:active, .bsch-select-btn:active, .bsch-select-option:active, .bsch-helptip-btn:active { background: var(--dsw-alias-bg-layer-2); }
+.bsch-mc-day:not(.is-selected):active, .bsch-timegrid-btn:not(.is-selected):active { background: var(--dsw-alias-bg-layer-2); }
 
 .bsch-icon { display: inline-flex; align-items: center; justify-content: center; width: 100%; height: 100%; color: inherit; }
 
@@ -207,7 +259,8 @@ window.__ModuleLoader__.load({
 @media (pointer: coarse) {
   .bsch-tab { min-height: 44px; box-sizing: border-box; }
   .bsch-btn, .bsch-badge-btn { min-height: 44px; box-sizing: border-box; padding: 6px 12px; }
-  .bsch-input, .bsch-select, .bsch-textarea { font-size: 16px; }
+  .bsch-helptip-btn { width: 22px; height: 22px; font-size: 12px; line-height: 20px; }
+  .bsch-input, .bsch-select, .bsch-textarea, .bsch-select-btn { font-size: 16px; }
   .bsch-check, .bsch-setting-toggle > input { width: 20px; height: 20px; }
   .bsch-setting-toggle { min-height: 44px; }
   .bsch-settings .bsch-category-row { grid-template-columns: minmax(60px, 1fr) 44px 44px; }

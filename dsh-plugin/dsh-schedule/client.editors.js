@@ -13,11 +13,12 @@ window.__ModuleLoader__.load({
     const gridm = require('@lidozs55/dsh-schedule/client.gridmath.js')
     const { React, h, field, pad2, dateKey } = core
     const { useState, useMemo } = React
-    const { Modal, ConfirmDialog } = core
+    const { Modal, ConfirmDialog, Select, DateField, TimeField } = core
 
-    const { categoriesOrDefault, categoryId, CategoryPreview, currentCategoryInputs } = core
+    const { categoriesOrDefault, categoryId, currentCategoryInputs, recreateEntries } = core
 
-    /** `YYYY-MM-DDTHH:mm` for `datetime-local` inputs, browser-local wall time. */
+    /** `YYYY-MM-DDTHH:mm`, browser-local wall time — sliced into the
+     *  separate date/time chip states of the editors. */
     const toLocalInput = iso => {
       const date = new Date(iso)
       return `${dateKey(date)}T${pad2(date.getHours())}:${pad2(date.getMinutes())}`
@@ -36,18 +37,23 @@ window.__ModuleLoader__.load({
       const categories = categoriesOrDefault(props.categories)
       const [title, setTitle] = useState(initial?.title ?? '')
       const [category, setCategory] = useState(initial?.category ?? 'other')
-      const [start, setStart] = useState(toLocalInput(initial?.start ?? draft.start ?? new Date()))
-      const [end, setEnd] = useState(toLocalInput(initial?.end ?? draft.end ?? new Date(Date.now() + 3_600_000)))
+      const startInit = toLocalInput(initial?.start ?? draft.start ?? new Date())
+      const endInit = toLocalInput(initial?.end ?? draft.end ?? new Date(Date.now() + 3_600_000))
+      const [startDate, setStartDate] = useState(startInit.slice(0, 10))
+      const [startTime, setStartTime] = useState(startInit.slice(11, 16))
+      const [endDate, setEndDate] = useState(endInit.slice(0, 10))
+      const [endTime, setEndTime] = useState(endInit.slice(11, 16))
       const [description, setDescription] = useState(initial?.description ?? '')
       const [location, setLocation] = useState(initial?.location ?? '')
       const [lock, setLock] = useState(initial?.lock ?? false)
+      const [allDay, setAllDay] = useState(Boolean(initial?.allDay))
       const [lead, setLead] = useState(() => leadToSelect(initial?.remindLead))
       const [error, setError] = useState(null)
       const [conflicts, setConflicts] = useState(null)
       const [confirming, setConfirming] = useState(false)
       const [busy, setBusy] = useState(false)
 
-      const settle = payload => { onSaved(payload) ; onClose() }
+      const settle = payload => { onSaved(payload); onClose() }
 
       const save = async allowConflicts => {
         setBusy(true)
@@ -59,8 +65,13 @@ window.__ModuleLoader__.load({
           location: location.trim() === '' ? null : location,
           lock,
           remindLead: lead === '' ? null : Number(lead),
-          start: zoneLocal(start),
-          end: zoneLocal(end),
+          // All-day saves carry the day only; the service normalizes the
+          // pair into a whole-day interval. `allDay: false` on an all-day
+          // row makes the service drop the flag and keep the times below.
+          allDay,
+          ...(allDay ? { day: startDate } : {}),
+          start: zoneLocal(`${startDate}T${startTime}`),
+          end: zoneLocal(`${endDate}T${endTime}`),
         }
         try {
           const saved = initial === null
@@ -73,7 +84,7 @@ window.__ModuleLoader__.load({
               let liveId = saved.id
               undoApi.push({
                 label: 'create',
-                undo: async () => { await api.deleteEntry(liveId) ; await refresh() },
+                undo: async () => { await api.deleteEntry(liveId); await refresh() },
                 redo: async () => {
                   const created = await api.createEntry((await currentCategoryInputs(api, [input]))[0], { allowConflicts: true })
                   liveId = created.id
@@ -93,8 +104,8 @@ window.__ModuleLoader__.load({
               }
               undoApi.push({
                 label: 'update',
-                undo: async () => { await api.updateEntry(initial.id, (await currentCategoryInputs(api, [before]))[0], { allowConflicts: true }) ; await refresh() },
-                redo: async () => { await api.updateEntry(initial.id, (await currentCategoryInputs(api, [input]))[0], { allowConflicts: true }) ; await refresh() },
+                undo: async () => { await api.updateEntry(initial.id, (await currentCategoryInputs(api, [before]))[0], { allowConflicts: true }); await refresh() },
+                redo: async () => { await api.updateEntry(initial.id, (await currentCategoryInputs(api, [input]))[0], { allowConflicts: true }); await refresh() },
               })
             }
           }
@@ -117,7 +128,7 @@ window.__ModuleLoader__.load({
             undoApi.push({
               label: 'delete',
               undo: async () => {
-                const created = await api.createEntry((await currentCategoryInputs(api, [{
+                const [restoredId] = await recreateEntries(api, [{
                   title: initial.title,
                   category: initial.category,
                   description: initial.description,
@@ -130,11 +141,10 @@ window.__ModuleLoader__.load({
                 ...(initial.source !== undefined ? { source: initial.source } : {}),
                 ...(initial.sourceKey !== undefined ? { sourceKey: initial.sourceKey } : {}),
                 ...(initial.remindLead !== undefined ? { remindLead: initial.remindLead } : {}),
-                }]))[0], { allowConflicts: true })
-                liveId = created.id
-                await refresh()
+                }], refresh, t)
+                liveId = restoredId
               },
-              redo: async () => { await api.deleteEntry(liveId) ; await refresh() },
+              redo: async () => { await api.deleteEntry(liveId); await refresh() },
             })
           }
           settle({ deleted: initial.id })
@@ -153,9 +163,10 @@ window.__ModuleLoader__.load({
         })
       }
 
-      // Source-provided entry actions (BUAA's remote check-in, …). The slot is
-      // owner-typed to the opened entry, so an action can never reach another
-      // row by rewriting ids on the client.
+      // Source-provided entry actions (BUAA's classroom check-in, …) share
+      // the footer's right group, ahead of 保存. The slot is owner-typed to
+      // the opened entry, so an action can never reach another row by
+      // rewriting ids on the client; sources render a footer-sized control.
       const entryActions = initial !== null && typeof renderSlot === 'function'
         ? renderSlot('schedule.entry.actions', { entry: initial })
         : null
@@ -173,20 +184,22 @@ window.__ModuleLoader__.load({
                 className: 'bsch-input', value: title, autoFocus: true,
                 onChange: e => setTitle(e.target.value),
               })),
-              field(t('entry.category'), h('select', {
-                className: 'bsch-select', value: categoryId(category, categories),
-                onChange: e => setCategory(e.target.value),
-              }, categories.map(cat => h('option', { key: cat.id, value: cat.id }, cat.name)))),
-              field(t('entry.start'), h('input', {
-                className: 'bsch-input', type: 'datetime-local', value: start,
-                onChange: e => setStart(e.target.value),
+              field(t('entry.category'), h(Select, {
+                value: categoryId(category, categories),
+                ariaLabel: t('entry.category'),
+                options: categories.map(cat => ({ value: cat.id, label: cat.name, color: cat.color })),
+                onChange: setCategory,
               })),
-              field(t('entry.end'), h('input', {
-                className: 'bsch-input', type: 'datetime-local', value: end,
-                onChange: e => setEnd(e.target.value),
+              field(t('entry.allDay'), h('input', {
+                type: 'checkbox', className: 'bsch-check', checked: allDay,
+                onChange: e => setAllDay(e.target.checked),
               })),
-              h(CategoryPreview, { category: categoryId(category, categories), categories, title }),
-              entryActions,
+              field(t('entry.start'), h('div', { className: 'bsch-rowline' },
+                h(DateField, { t, value: startDate, onChange: setStartDate, ariaLabel: t('entry.start') }),
+                allDay ? null : h(TimeField, { value: startTime, onChange: setStartTime, ariaLabel: t('entry.start') }))),
+              field(t('entry.end'), h('div', { className: 'bsch-rowline' },
+                h(DateField, { t, value: endDate, onChange: setEndDate, ariaLabel: t('entry.end') }),
+                allDay ? null : h(TimeField, { value: endTime, onChange: setEndTime, ariaLabel: t('entry.end') }))),
               entryDetails({ t, location, setLocation, lock, setLock }),
               h(RemindLeadField, { t, lead, setLead }),
               field(t('entry.description'), h('textarea', {
@@ -195,11 +208,14 @@ window.__ModuleLoader__.load({
               })),
               error !== null ? h('div', { className: 'bsch-error' }, error) : null,
               h('div', { className: 'bsch-modal-actions' },
-                initial !== null ? h('button', {
-                  className: 'bsch-btn is-danger',
-                  onClick: () => setConfirming(true),
-                }, t('entry.delete')) : null,
-                h('button', { className: 'bsch-btn', onClick: onClose }, t('entry.cancel')),
+                h('div', { className: 'bsch-modal-actions-group' },
+                  initial !== null ? h('button', {
+                    className: 'bsch-btn is-danger',
+                    onClick: () => setConfirming(true),
+                  }, t('entry.delete')) : null,
+                  h('button', { className: 'bsch-btn', onClick: onClose }, t('entry.cancel'))),
+                h('span', { className: 'bsch-spacer' }),
+                entryActions,
                 h('button', {
                   className: 'bsch-btn is-primary', disabled: busy || title.trim() === '',
                   onClick: () => void save(false),
@@ -247,11 +263,11 @@ window.__ModuleLoader__.load({
     }
 
     function RemindLeadField({ t, lead, setLead }) {
-      return field(t('remind.lead'), h('select', {
-        className: 'bsch-select', value: lead,
-        onChange: event => setLead(event.target.value),
-      }, leadOptions(t, lead === '' ? null : Number(lead)).map(option =>
-        h('option', { key: option.value, value: option.value }, option.label))))
+      return field(t('remind.lead'), h(Select, {
+        value: lead, ariaLabel: t('remind.lead'),
+        options: leadOptions(t, lead === '' ? null : Number(lead)),
+        onChange: setLead,
+      }))
     }
 
     const leadToSelect = lead => (lead === null || lead === undefined ? '' : String(lead))
@@ -331,16 +347,7 @@ window.__ModuleLoader__.load({
                 await refresh()
               },
               redo: async () => {
-                const created = await api.batchCreateEntries(await currentCategoryInputs(api, accepted), { allowConflicts: true })
-                const restoredIds = created.filter(row => row.ok).map(row => row.id)
-                const failed = created.find(row => !row.ok)
-                if (failed) {
-                  if (restoredIds.length) await api.deleteEntry(restoredIds)
-                  await refresh()
-                  throw new Error(failed.message ?? t('entry.restoreFailed'))
-                }
-                liveIds = restoredIds
-                await refresh()
+                liveIds = await recreateEntries(api, accepted, refresh, t)
               },
             })
           }
@@ -358,7 +365,6 @@ window.__ModuleLoader__.load({
         h('div', null,
           field(t('entry.title'), h('input', {
             className: 'bsch-input', value: title, autoFocus: true,
-            placeholder: t('entry.title'),
             onChange: e => setTitle(e.target.value),
           })),
           field(t('batch.repeat'), h('select', {
@@ -378,35 +384,32 @@ window.__ModuleLoader__.load({
                 }), label)
             }))) : null,
           h('div', { className: 'bsch-rowline' },
-            field(t('batch.startDate'), h('input', {
-              className: 'bsch-input', type: 'date', value: startDate,
-              onChange: e => setStartDate(e.target.value),
+            field(t('batch.startDate'), h(DateField, {
+              t, value: startDate, onChange: setStartDate, ariaLabel: t('batch.startDate'),
             })),
-            field(t('batch.endDate'), h('input', {
-              className: 'bsch-input', type: 'date', value: endDate,
-              onChange: e => setEndDate(e.target.value),
+            field(t('batch.endDate'), h(DateField, {
+              t, value: endDate, onChange: setEndDate, ariaLabel: t('batch.endDate'),
             }))),
           h('div', { className: 'bsch-rowline' },
-            field(t('batch.startTime'), h('input', {
-              className: 'bsch-input', type: 'time', value: startTime,
-              onChange: e => setStartTime(e.target.value),
+            field(t('batch.startTime'), h(TimeField, {
+              value: startTime, onChange: setStartTime, ariaLabel: t('batch.startTime'),
             })),
-            field(t('batch.endTime'), h('input', {
-              className: 'bsch-input', type: 'time', value: endTime,
-              onChange: e => setEndTime(e.target.value),
+            field(t('batch.endTime'), h(TimeField, {
+              value: endTime, onChange: setEndTime, ariaLabel: t('batch.endTime'),
             }))),
-          field(t('entry.category'), h('select', {
-            className: 'bsch-select', value: categoryId(category, categories),
-            onChange: e => setCategory(e.target.value),
-          }, categories.map(cat => h('option', { key: cat.id, value: cat.id }, cat.name)))),
-          h(CategoryPreview, { category: categoryId(category, categories), categories, title }),
+          field(t('entry.category'), h(Select, {
+            value: categoryId(category, categories),
+            ariaLabel: t('entry.category'),
+            options: categories.map(cat => ({ value: cat.id, label: cat.name, color: cat.color })),
+            onChange: setCategory,
+          })),
           entryDetails({ t, location, setLocation, lock, setLock }),
           field(t('entry.description'), h('textarea', {
             className: 'bsch-textarea', value: description, rows: 2,
             onChange: e => setDescription(e.target.value),
           })),
           h('div', { className: 'bsch-hint' },
-            `${t('batch.hint')} ${t('batch.count').replace('{count}', String(targetDays.length))}`),
+            t('batch.count').replace('{count}', String(targetDays.length))),
           summary !== null
             ? h('div', { className: 'bsch-hint' },
                 t('batch.created').replace('{ok}', String(summary.ok)).replace('{fail}', String(summary.fail)))

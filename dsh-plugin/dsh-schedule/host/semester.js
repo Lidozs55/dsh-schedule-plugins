@@ -11,7 +11,7 @@ const DAY_MS = 86_400_000
 const pad2 = n => String(n).padStart(2, '0')
 
 /** Parse a `YYYY-MM-DD` string into a local-noon Date (noon avoids DST edges). */
-export function parseDate(date) {
+function parseDate(date) {
   const [y, m, d] = date.split('-').map(Number)
   return new Date(y, m - 1, d, 12, 0, 0, 0)
 }
@@ -32,7 +32,7 @@ export function zonedIso(y, m, d, hh, mm) {
 }
 
 /** Monday of the week containing `date` (`YYYY-MM-DD`). */
-export function mondayOf(date) {
+function mondayOf(date) {
   const d = parseDate(date)
   const shift = (d.getDay() + 6) % 7
   d.setDate(d.getDate() - shift)

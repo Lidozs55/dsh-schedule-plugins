@@ -2,7 +2,7 @@
  * Full-domain import for the shape this plugin's own export produces
  * (`settings.section` → export JSON). Round-tripping an export must work.
  */
-import { cloneCategories, PRIORITIES, REMIND_LEAD_MAX_MINUTES } from './model.js'
+import { cloneCategories, fail, PRIORITIES, REMIND_LEAD_MAX_MINUTES } from './model.js'
 
 const priorityOf = value => (PRIORITIES.includes(value) ? value : 'medium')
 
@@ -18,15 +18,15 @@ const isObject = value => value !== null && typeof value === 'object' && !Array.
  */
 export async function importSchedulePayload(service, payload) {
   if (!isObject(payload)) {
-    throw Object.assign(new Error('导入载荷不是对象'), { code: 'invalid_input' })
+    fail('invalid_input', '导入载荷不是对象')
   }
   const unsupported = Object.keys(payload).filter(key => !['global', 'entries', 'tasks', 'exportedAt'].includes(key))
   if (unsupported.length > 0) {
-    throw Object.assign(new Error(`不支持的导入字段：${unsupported.join('、')}；请使用当前条目格式`), { code: 'invalid_input' })
+    fail('invalid_input', `不支持的导入字段：${unsupported.join('、')}；请使用当前条目格式`)
   }
   for (const table of ['entries', 'tasks']) {
     if (payload[table] !== undefined && !Array.isArray(payload[table])) {
-      throw Object.assign(new Error(`${table} 必须是数组`), { code: 'invalid_input' })
+      fail('invalid_input', `${table} 必须是数组`)
     }
   }
   const counts = {

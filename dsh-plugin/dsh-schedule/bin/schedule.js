@@ -87,7 +87,9 @@ function httpCall(descriptor, method, path, body, timeoutMs) {
       res.on('data', chunk => {
         size += chunk.length
         if (size > MAX_RESPONSE_BYTES) {
-          req.destroy(new Error('宿主回执过大'))
+          req.destroy(new Error(
+            `宿主回执超过 ${MAX_RESPONSE_BYTES / 1024 / 1024} MB 上限；请缩小查询范围（如用 from/to 限定更小窗口）后重试`,
+          ))
           return
         }
         chunks.push(chunk)
@@ -177,13 +179,11 @@ const GLOBAL_BOOLEAN_FLAGS = new Map([
   ['--help', 'help'],
   ['-h', 'help'],
   ['--password-stdin', 'passwordStdin'],
-  ['--json', 'json'],
 ])
 
 function extractGlobals(argv) {
   const globals = {
     help: false,
-    json: true,
     passwordStdin: false,
     instance: undefined,
     input: undefined,
@@ -403,7 +403,7 @@ function coerceValue(option, raw) {
   return value
 }
 
-function parseCommandArgs(node, args) {
+function parseCommandArgs(node, args, path) {
   const definitions = new Map((node.options ?? []).map(option => [option.name, option]))
   const input = {}
   const positionals = []
@@ -428,7 +428,8 @@ function parseCommandArgs(node, args) {
     }
     const option = definitions.get(name)
     if (option === undefined) {
-      throw new CliError(`命令 ${node.name} 不支持选项 --${name}；运行 \`schedule ${node.name} --help\``, 'usage')
+      const full = path.join(' ')
+      throw new CliError(`命令 ${full} 不支持选项 --${name}；运行 \`schedule ${full} --help\``, 'usage')
     }
     if (option.hidden === true) {
       throw new CliError(`--${name} 不能直接作为命令行参数；密码请用 --password-stdin 或 --password-env`, 'usage')
@@ -523,13 +524,13 @@ function withPassword(input, globals) {
   return { ...input, password }
 }
 
-function applyDefaults(node, input) {
+function applyDefaults(node, input, path) {
   for (const option of node.options ?? []) {
     if (input[option.name] === undefined && option.default !== undefined) {
       input[option.name] = option.default
     }
     if (option.required && input[option.name] === undefined) {
-      throw new CliError(`缺少必填选项 --${option.name}；运行帮助查看用法`, 'usage')
+      throw new CliError(`缺少必填选项 --${option.name}；运行 \`schedule ${path.join(' ')} --help\` 查看用法`, 'usage')
     }
   }
   return input
@@ -609,13 +610,13 @@ async function main() {
     throw new CliError(`命令组需要子命令；运行 \`schedule ${targetPath.join(' ')} --help\``, 'usage')
   }
 
-  let input = parseCommandArgs(node, args)
+  let input = parseCommandArgs(node, args, targetPath)
   assertPasswordTransport(globals)
   if (globals.input !== undefined) {
     input = { ...readInputFile(globals.input, targetPath), ...input }
   }
   input = withPassword(input, globals)
-  input = applyDefaults(node, input)
+  input = applyDefaults(node, input, targetPath)
 
   const sessionId = globals.session
     ?? process.env.SCHEDULE_SESSION_ID

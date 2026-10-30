@@ -27,7 +27,7 @@ window.__ModuleLoader__.load({
   id: '@lidozs55/dsh-schedule/client.clipboard.js',
   factory: (require) => {
     const core = require('@lidozs55/dsh-schedule/client.core.js')
-    const { React, h } = core
+    const { React, h, HelpTip } = core
     const { useState, useEffect } = React
     const { ConfirmDialog } = core
 
@@ -470,9 +470,7 @@ window.__ModuleLoader__.load({
         const types = Array.from(event.dataTransfer?.types ?? [])
         if (!types.includes('Files')) return
         event.preventDefault()
-        if (event.dataTransfer !== null && event.dataTransfer !== undefined) {
-          event.dataTransfer.dropEffect = 'copy'
-        }
+        event.dataTransfer.dropEffect = 'copy'
       }
 
       const send = async () => {
@@ -494,6 +492,7 @@ window.__ModuleLoader__.load({
       return h('div', { className: 'bsch-body', onDragOver: dragOver, onDrop: dropImages },
         h('div', { className: 'bsch-toolbar' },
           h('span', { className: 'bsch-hint' }, t('clipboard.title')),
+          h(HelpTip, { text: t('clipboard.hint') }),
           h('span', { className: 'bsch-spacer' }),
           h('label', { className: 'bsch-btn', title: t('clipboard.attachHint') },
             t('clipboard.attach'),
@@ -506,9 +505,6 @@ window.__ModuleLoader__.load({
                 className: 'bsch-btn is-danger', onClick: () => setConfirming(true),
               }, t('clipboard.clear'))
             : null),
-        h('div', { className: 'bsch-hint', style: { padding: '0 8px 6px' } }, t('clipboard.hint')),
-        h('div', { className: 'bsch-hint', style: { padding: '0 8px 6px' } },
-          t('clipboard.watching')),
         items.length === 0
           ? h('div', { className: 'bsch-queue-empty' }, t('clipboard.empty'))
           : h('div', { className: 'bsch-queue' },

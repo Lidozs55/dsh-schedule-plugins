@@ -156,13 +156,20 @@ test('backup settings explain merge rules and excluded source settings in both l
   for (const locale of ['zh', 'en']) {
     const translations = app.module('core')[locale]
     const tree = app.render(Settings, { ...propsWith(snapshotApi(categories)), t: key => translations[key] ?? key })
-    const hint = find(tree, n => n.props.id === 'bsch-backup-hint')
-    assert.ok(hint)
-    assert.equal(hint.children[0], translations['settings.backupHint'])
-    assert.match(hint.children[0], locale === 'zh' ? /合并.*跳过.*不含.*来源设置/ : /merge.*skip.*exclude.*source settings/i)
+    // The always-on hint row became a hover "?" tip next to the label; the
+    // copy contract is unchanged, only its surface moved to `props.text`.
+    const tipTexts = nodes(tree)
+      .filter(n => typeof n.type === 'function' && typeof n.props.text === 'string')
+      .map(n => n.props.text)
+    assert.ok(tipTexts.includes(translations['settings.backupHint']))
+    assert.match(translations['settings.backupHint'],
+      locale === 'zh' ? /跳过.*不含.*来源设置/ : /skip.*exclude.*source settings/i)
     assert.match(translations['settings.clearAllHint'], locale === 'zh' ? /同步仍会.*重新生成/ : /sync.*recreate/i)
+    // The clear-all row keeps a short visible line plus its own tip.
+    assert.ok(tipTexts.includes(translations['settings.clearAllMore']))
+    assert.match(translations['settings.clearAllMore'], locale === 'zh' ? /来源同步/ : /source sync/i)
     for (const key of ['settings.export', 'settings.import']) {
-      assert.equal(find(tree, n => n.type === 'button' && n.children.includes(translations[key])).props['aria-describedby'], hint.props.id)
+      assert.ok(find(tree, n => n.type === 'button' && n.children.includes(translations[key])))
     }
   }
 })

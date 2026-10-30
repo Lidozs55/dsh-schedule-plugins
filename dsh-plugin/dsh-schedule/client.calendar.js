@@ -10,9 +10,9 @@ window.__ModuleLoader__.load({
   factory: (require) => {
     const core = require('@lidozs55/dsh-schedule/client.core.js')
     const grid = require('@lidozs55/dsh-schedule/client.gridmath.js')
-    const { React, h, addDays, zonedAt, pad2, dateKey } = core
+    const { React, h, addDays, zonedAt, dateKey } = core
     const { useState, useCallback, useEffect } = React
-    const { useScheduleData, useUndo, ConfirmDialog } = core
+    const { useScheduleData, useUndo, ConfirmDialog, MonthGrid } = core
     const { WeekGrid } = require('@lidozs55/dsh-schedule/client.weekgrid.js')
     const { EventEditor, BatchEditor } = require('@lidozs55/dsh-schedule/client.editors.js')
     const { TasksTab } = require('@lidozs55/dsh-schedule/client.tasks.js')
@@ -32,14 +32,13 @@ window.__ModuleLoader__.load({
     }
 
     // -- quick-jump mini calendar (legacy 快速跳转小日历) ----------------------
-    const MC_WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
-
     const shiftMonth = (cursor, delta) => {
       const date = new Date(cursor.year, cursor.month + delta, 1)
       return { year: date.getFullYear(), month: date.getMonth() }
     }
 
-    /** Month grid with up to three actual category-color dots per day. */
+    /** Quick-jump mini calendar: the shared MonthGrid with up to three
+     *  actual category-color dots per day. */
     function MiniCalendar({ t, api, onJump, categories }) {
       const now = new Date()
       const [cursor, setCursor] = useState({ year: now.getFullYear(), month: now.getMonth() })
@@ -77,45 +76,13 @@ window.__ModuleLoader__.load({
         return () => { alive = false }
       }, [api, cursor, categories])
 
-      const daysInMonth = new Date(cursor.year, cursor.month + 1, 0).getDate()
-      const leading = new Date(cursor.year, cursor.month, 1).getDay() // Sunday-first, like the original
-      const todayKey = dateKey(new Date())
-      const cells = [
-        ...Array.from({ length: leading }, (_, i) =>
-          h('div', { key: `e${i}`, className: 'bsch-mc-day is-empty' })),
-        ...Array.from({ length: daysInMonth }, (_, i) => {
-          const key = `${cursor.year}-${pad2(cursor.month + 1)}-${pad2(i + 1)}`
-          const ids = dayCategories[key] ?? []
-          return h('div', {
-            key,
-            className: [
-              'bsch-mc-day',
-              key === todayKey ? 'is-today' : '',
-              ids.length ? 'has-dot' : '',
-            ].filter(Boolean).join(' '),
-            onClick: () => onJump(key),
-          }, String(i + 1), h('span', { className: 'bsch-mc-dots' }, ids.map(id =>
-            h('span', { key: id, className: 'bsch-mc-dot', title: core.categoryName(id, categories),
-              style: { background: core.categoryColor(id, categories) } }))))
-        }),
-      ]
-      return h('div', { className: 'bsch-mc' },
-        h('div', { className: 'bsch-mc-head' },
-          h('button', {
-            className: 'bsch-btn', title: t('toolbar.prev'),
-            onClick: () => setCursor(c => shiftMonth(c, -1)),
-          }, '‹'),
-          h('span', { className: 'bsch-mc-month' },
-            t('minical.month')
-              .replace('{year}', String(cursor.year))
-              .replace('{month}', pad2(cursor.month + 1))),
-          h('button', {
-            className: 'bsch-btn', title: t('toolbar.next'),
-            onClick: () => setCursor(c => shiftMonth(c, 1)),
-          }, '›')),
-        h('div', { className: 'bsch-mc-weekdays' },
-          MC_WEEKDAYS.map(day => h('span', { key: day }, day))),
-        h('div', { className: 'bsch-mc-grid' }, cells))
+      const dots = Object.fromEntries(Object.entries(dayCategories).map(([day, ids]) =>
+        [day, ids.map(id => ({ title: core.categoryName(id, categories), color: core.categoryColor(id, categories) }))]))
+      return h(MonthGrid, {
+        t, cursor, dots,
+        onShift: delta => setCursor(current => shiftMonth(current, delta)),
+        onPick: onJump,
+      })
     }
 
     /** The week-range badge doubles as the quick-jump trigger (R10-1). */
@@ -206,6 +173,22 @@ window.__ModuleLoader__.load({
         await Promise.all([refresh(), weekly.refresh()])
       }, [refresh, weekly.refresh])
 
+      // Drag-moves and confirmed conflict overwrites share one undo step
+      // shape: multi-move back (undo) / forward (redo), conflicts allowed.
+      const pushMoveUndo = items => undoApi.push({
+        label: 'move',
+        undo: async () => {
+          await api.moveEntry(items.map(item =>
+            ({ id: item.id, start: item.before.start, end: item.before.end })), { allowConflicts: true })
+          await refreshBoth()
+        },
+        redo: async () => {
+          await api.moveEntry(items.map(item =>
+            ({ id: item.id, start: item.after.start, end: item.after.end })), { allowConflicts: true })
+          await refreshBoth()
+        },
+      })
+
       // Move is natively multi-item (R9-3): resize passes 1 item, selection
       // drag passes n — one code path. The host replies per item; applied
       // items share one undo step and conflicted ones land in a single
@@ -227,21 +210,7 @@ window.__ModuleLoader__.load({
             window.console.error(result.message)
           }
         }
-        if (applied.length > 0) {
-          undoApi.push({
-            label: 'move',
-            undo: async () => {
-              await api.moveEntry(applied.map(item =>
-                ({ id: item.id, start: item.before.start, end: item.before.end })), { allowConflicts: true })
-              await refreshBoth()
-            },
-            redo: async () => {
-              await api.moveEntry(applied.map(item =>
-                ({ id: item.id, start: item.after.start, end: item.after.end })), { allowConflicts: true })
-              await refreshBoth()
-            },
-          })
-        }
+        if (applied.length > 0) pushMoveUndo(applied)
         await refreshBoth()
         if (conflicted.length > 0) setConflictBatch(conflicted)
         return {
@@ -260,17 +229,7 @@ window.__ModuleLoader__.load({
         undoApi.push({
           label: 'delete',
           undo: async () => {
-            const results = await api.batchCreateEntries(await core.currentCategoryInputs(api, rows), { allowConflicts: true })
-            const restoredIds = results.filter(row => row.ok).map(row => row.id)
-            const failed = results.find(row => !row.ok)
-            if (failed) {
-              // The undo step stays retryable; do not duplicate partial restores.
-              if (restoredIds.length) await api.deleteEntry(restoredIds)
-              await refreshBoth()
-              throw new Error(failed.message ?? t('entry.restoreFailed'))
-            }
-            liveIds = restoredIds
-            await refreshBoth()
+            liveIds = await core.recreateEntries(api, rows, refreshBoth, t)
           },
           redo: async () => {
             await api.deleteEntry(liveIds)
@@ -278,7 +237,7 @@ window.__ModuleLoader__.load({
           },
         })
         await refreshBoth()
-      }, [api, undoApi, refreshBoth])
+      }, [api, undoApi, refreshBoth, t])
 
       return h('div', { className: 'bsch-body' },
         h('div', { className: 'bsch-toolbar' },
@@ -357,24 +316,12 @@ window.__ModuleLoader__.load({
           confirmLabel: t('conflict.proceed'),
           onCancel: () => setConflictBatch(null),
           onConfirm: () => {
-            const pending = conflictBatch
+            const items = conflictBatch.map(({ item }) => item)
             setConflictBatch(null)
             void (async () => {
-              await api.moveEntry(pending.map(({ item }) =>
+              await api.moveEntry(items.map(item =>
                 ({ id: item.id, start: item.after.start, end: item.after.end })), { allowConflicts: true })
-              undoApi.push({
-                label: 'move',
-                undo: async () => {
-                  await api.moveEntry(pending.map(({ item }) =>
-                    ({ id: item.id, start: item.before.start, end: item.before.end })), { allowConflicts: true })
-                  await refreshBoth()
-                },
-                redo: async () => {
-                  await api.moveEntry(pending.map(({ item }) =>
-                    ({ id: item.id, start: item.after.start, end: item.after.end })), { allowConflicts: true })
-                  await refreshBoth()
-                },
-              })
+              pushMoveUndo(items)
               await refreshBoth()
             })()
           },
@@ -390,7 +337,7 @@ window.__ModuleLoader__.load({
       const [tab, setTab] = useState('schedule')
       const root = useScheduleData(env.api, env.timer)
       const undoApi = useUndo(root.refresh)
-      const refreshAll = useCallback(() => { void root.refresh() }, [root.refresh])
+      const refreshAll = useCallback(() => root.refresh(), [root.refresh])
       // Trust a snapshot anchor only when it is a well-formed day key (P7:
       // a poisoned 'undefined' once produced aN-NaN headers).
       const [weekStart, setWeekStart] = useState(

@@ -112,7 +112,7 @@ async function parseBody(request) {
   if (text === '') return {}
   try {
     const parsed = JSON.parse(text)
-    return parsed !== null && typeof parsed === 'object' ? parsed : undefined
+    return parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : undefined
   } catch {
     return undefined
   }

@@ -29,7 +29,8 @@ window.__ModuleLoader__.load({
       // Every ctx.* service read in apply must be declared here — the
       // runner guards the dynamic-plugin context and refuses undeclared
       // property access ("cannot get property ... without inject").
-      // `timer` backs the calendar/clipboard refresh scheduling.
+      // `timer` backs the calendar refresh scheduling and the reminder
+      // notification poller (the clipboard monitor keeps its own interval).
       inject: ['slots', 'locale', 'remote', 'remote.session', 'uiWorkspace', 'timer'],
 
       async apply(ctx) {
@@ -107,6 +108,20 @@ window.__ModuleLoader__.load({
             // registering a section of their own (one 日程设置 page).
             children: { 'schedule.settings.blocks': { kind: 'list', scope: 'root' } } },
           SettingsSection))
+
+        // Source adapters (BUAA, gacha) sync-require this package's chunks
+        // from their own chunk factories. That is only safe once every chunk
+        // above has materialized, so the shared UI travels as a provided
+        // service: adapters inject 'scheduleShared' and cordis holds their
+        // fibers pending until this apply — chunk materialization included —
+        // has finished. The value doubles as the sanctioned import surface,
+        // so adapters need not reach into this package's chunks at all.
+        ctx.provide('scheduleShared', {
+          HelpTip: core.HelpTip,
+          showTip: core.showTip,
+          hideTip: core.hideTip,
+          toast: notify.toast,
+        })
       },
     }
   },

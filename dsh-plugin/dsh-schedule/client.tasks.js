@@ -8,9 +8,11 @@ window.__ModuleLoader__.load({
     const core = require('@lidozs55/dsh-schedule/client.core.js')
     const { React, h, field } = core
     const { useState, useMemo } = React
-    const { Modal, ConfirmDialog } = core
+    const { Modal, ConfirmDialog, Select, DateField, TimeField } = core
     const { toLocalInput, zoneLocal, RemindLeadField, leadToSelect } = require('@lidozs55/dsh-schedule/client.editors.js')
 
+    // Cross-end copy of host/model.js TASK_TYPES/PRIORITIES — keep in sync
+    // with host/model.js (no runtime sharing between host and client).
     const TYPES = ['homework', 'exam', 'lecture', 'other']
     const PRIORITIES = ['high', 'medium', 'low']
     const DAY_MS = 86_400_000
@@ -42,13 +44,12 @@ window.__ModuleLoader__.load({
       const [title, setTitle] = useState(initial?.title ?? '')
       const [taskType, setTaskType] = useState(initial?.taskType ?? 'homework')
       const [priority, setPriority] = useState(initial?.priority ?? 'medium')
-      const [due, setDue] = useState(() => {
-        if (initial?.due !== undefined) return toLocalInput(initial.due)
-        // Legacy defaulted a new task's due to TODAY (end of day).
-        const endOfToday = new Date()
-        endOfToday.setHours(23, 59, 0, 0)
-        return toLocalInput(endOfToday)
-      })
+      // Legacy defaulted a new task's due to TODAY (end of day).
+      const dueInit = initial?.due !== undefined
+        ? toLocalInput(initial.due)
+        : toLocalInput((() => { const endOfToday = new Date(); endOfToday.setHours(23, 59, 0, 0); return endOfToday })())
+      const [dueDate, setDueDate] = useState(dueInit.slice(0, 10))
+      const [dueTime, setDueTime] = useState(dueInit.slice(11, 16))
       const [description, setDescription] = useState(initial?.description ?? '')
       const [lead, setLead] = useState(() => leadToSelect(initial?.remindLead))
       const [error, setError] = useState(null)
@@ -57,11 +58,22 @@ window.__ModuleLoader__.load({
       const save = async () => {
         setError(null)
         try {
-          const input = { title, taskType, priority, description, due: zoneLocal(due), remindLead: lead === '' ? null : Number(lead) }
+          const input = { title, taskType, priority, description, due: zoneLocal(`${dueDate}T${dueTime}`), remindLead: lead === '' ? null : Number(lead) }
           const saved = initial === null
             ? await api.createTask(input)
             : await api.updateTask(initial.id, input)
           onSaved(saved)
+          onClose()
+        } catch (cause) {
+          setError(cause.message ?? String(cause))
+        }
+      }
+
+      const remove = async () => {
+        setError(null)
+        try {
+          await api.deleteTask(initial.id)
+          onSaved({ deleted: initial.id })
           onClose()
         } catch (cause) {
           setError(cause.message ?? String(cause))
@@ -74,11 +86,7 @@ window.__ModuleLoader__.load({
           message: t('confirm.deleteTask').replace('{title}', initial?.title ?? ''),
           confirmLabel: t('confirm.ok'),
           onCancel: () => setConfirming(false),
-          onConfirm: async () => {
-            await api.deleteTask(initial.id)
-            onSaved({ deleted: initial.id })
-            onClose()
-          },
+          onConfirm: () => { setConfirming(false); void remove() },
         })
       }
       return h(Modal, { title: t(initial === null ? 'task.create' : 'task.edit'), onClose },
@@ -86,18 +94,19 @@ window.__ModuleLoader__.load({
           className: 'bsch-input', value: title, autoFocus: true,
           onChange: e => setTitle(e.target.value),
         })),
-        field(t('task.type'), h('select', {
-          className: 'bsch-select', value: taskType,
-          onChange: e => setTaskType(e.target.value),
-        }, TYPES.map(type => h('option', { key: type, value: type }, t('type.' + type))))),
-        field(t('task.due'), h('input', {
-          className: 'bsch-input', type: 'datetime-local', value: due,
-          onChange: e => setDue(e.target.value),
+        field(t('task.type'), h(Select, {
+          value: taskType, ariaLabel: t('task.type'),
+          options: TYPES.map(type => ({ value: type, label: t('type.' + type) })),
+          onChange: setTaskType,
         })),
-        field(t('task.priority'), h('select', {
-          className: 'bsch-select', value: priority,
-          onChange: e => setPriority(e.target.value),
-        }, PRIORITIES.map(level => h('option', { key: level, value: level }, t('prio.' + level))))),
+        field(t('task.due'), h('div', { className: 'bsch-rowline' },
+          h(DateField, { t, value: dueDate, onChange: setDueDate, ariaLabel: t('task.due') }),
+          h(TimeField, { value: dueTime, onChange: setDueTime, ariaLabel: t('task.due') }))),
+        field(t('task.priority'), h(Select, {
+          value: priority, ariaLabel: t('task.priority'),
+          options: PRIORITIES.map(level => ({ value: level, label: t('prio.' + level) })),
+          onChange: setPriority,
+        })),
         h(RemindLeadField, { t, lead, setLead }),
         field(t('task.description'), h('textarea', {
           className: 'bsch-textarea', value: description, rows: 2,

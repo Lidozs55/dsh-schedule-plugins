@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>BUAAer 智能日程 · 宣传片</title>
+<title>智能日程 · 宣传片</title>
 <style>
 /* ============ 舞台与画布（设计分辨率 1280x720，等比缩放适配窗口） ============ */
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -123,11 +123,11 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
   box-shadow: inset 0 -2px 0 #3b76f6; }
 .rgrid-head .today em { font-style: normal; background: #3b76f6; color: #fff; border-radius: 4px;
   padding: 1px 5px; margin-right: 5px; font-size: 10px; }
-#s4 .rgrid-head { height: 24px; }
-#s4 .rgrid-head > div { line-height: 24px; font-size: 11px; }
+#s7 .rgrid-head { height: 24px; }
+#s7 .rgrid-head > div { line-height: 24px; font-size: 11px; }
 .rgrid { position: absolute; top: 30px; bottom: 0; left: 0; right: 0;
   display: grid; grid-template-columns: 44px repeat(7, 1fr); overflow: hidden; }
-#s4 .rgrid { top: 24px; }
+#s7 .rgrid { top: 24px; }
 .rgutter { grid-row: 1 / span 14; position: relative; border-right: 1px solid rgba(130,160,230,.1); }
 .rgutter div { position: absolute; right: 6px; transform: translateY(-50%); font-size: 10px; color: #6d7fa6; }
 .rday { position: relative; border-left: 1px solid rgba(130,160,230,.1); }
@@ -178,12 +178,141 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
 .conflict-mini .btns .ok { background: rgba(59,130,246,.2); border: 1px solid rgba(99,146,255,.5); color: #bcd3ff; }
 .conflict-mini .btns .no { border: 1px solid rgba(130,160,230,.3); color: #9fb0d6; }
 
-/* ============ 场景 4 · 导入 ============ */
-#s4 .cols { position: absolute; inset: 40px 44px; display: grid; grid-template-columns: 430px 1fr; gap: 34px; }
+/* ============ 场景 4 · 04:00 开始的一天 ============ */
+.day400 { position: absolute; left: 50%; top: 50%; width: 980px; transform: translate(-50%,-50%);
+  padding: 36px 44px 32px; }
+.d4-head .d4-title { font-size: 30px; font-weight: 800; color: #eef3ff; animation: fadeup .7s .1s ease both; }
+.d4-head .d4-sub { font-size: 15px; color: #8ea3cc; margin-top: 8px; animation: fadeup .7s .3s ease both; }
+.d4-band { position: relative; height: 118px; margin: 46px 0 46px; border-radius: 14px;
+  background: linear-gradient(90deg,#0b1030 0%, #131a44 30%, #2a1e5e 52%, #6d3f86 63%, #b96b8f 78%, #e8a06a 100%);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.08), 0 14px 44px rgba(0,0,0,.45); }
+.d4-tick { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(255,255,255,.13); }
+.d4-tick span { position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%);
+  font-size: 11px; color: rgba(230,238,255,.75); white-space: nowrap;
+  font-family: "Cascadia Code", Consolas, monospace; }
+.d4-seam { position: absolute; top: -16px; bottom: -16px; width: 3px; border-radius: 2px;
+  background: linear-gradient(180deg, #67e8f9, #22d3ee); transform-origin: top; transform: scaleY(0);
+  box-shadow: 0 0 18px rgba(103,232,249,.8), 0 0 46px rgba(34,211,238,.4);
+  transition: transform .7s cubic-bezier(.2,.9,.3,1.2); }
+.d4-seam.on { transform: scaleY(1); }
+.d4-seam em { position: absolute; top: -34px; left: 50%; transform: translateX(-50%); font-style: normal;
+  font-size: 13px; font-weight: 700; color: #a5f3fc; background: rgba(8,20,30,.92);
+  border: 1px solid rgba(103,232,249,.45); padding: 2px 10px; border-radius: 7px; white-space: nowrap;
+  opacity: 0; transition: opacity .4s .4s; }
+.d4-seam.on em { opacity: 1; }
+.d4-block { position: absolute; top: 20px; height: 58px; border-radius: 9px; padding: 7px 10px;
+  border-left: 2.5px solid var(--c); background: color-mix(in srgb, var(--c) 30%, rgba(10,14,26,.6));
+  opacity: 0; transform: translateY(10px) scale(.92); transition: all .5s cubic-bezier(.2,.9,.3,1.2); }
+.d4-block.on { opacity: 1; transform: none; }
+.d4-block b { display: block; font-size: 13px; color: #eef3ff; white-space: nowrap; }
+.d4-block span { display: block; font-size: 11px; color: #b9c6e4; margin-top: 2px;
+  font-family: "Cascadia Code", Consolas, monospace; white-space: nowrap; }
+.d4-zones { position: relative; height: 24px; }
+.d4-zone { position: absolute; font-size: 14.5px; font-weight: 600; opacity: 0;
+  transform: translateY(8px); transition: all .5s; }
+.d4-zone.on { opacity: 1; transform: none; }
+.d4-zone .zz { font-size: 11.5px; color: #7f92ba; font-weight: 400; margin-left: 8px; }
+.d4-compare { display: flex; gap: 14px; justify-content: center; margin-top: 18px; }
+.d4-cmp { padding: 8px 18px; border-radius: 999px; font-size: 14px; opacity: 0;
+  transform: translateY(10px); transition: all .5s; }
+.d4-cmp.on { opacity: 1; transform: none; }
+.d4-cmp.bad { border: 1px solid rgba(244,86,78,.45); color: #ff9b95; background: rgba(80,20,20,.25); }
+.d4-cmp.good { border: 1px solid rgba(76,200,130,.45); color: #8fd8a0; background: rgba(16,60,36,.3); }
+
+/* ============ 场景 5 · AI + CLI ============ */
+#s5 .cols { position: absolute; inset: 40px 44px; display: grid; grid-template-columns: 1fr 1.15fr; gap: 32px; }
+.chat { display: flex; flex-direction: column; gap: 12px; padding: 18px; animation: fadeup .7s ease both; }
+.chat .who { font-size: 11px; color: #6d7fa6; letter-spacing: 2px; }
+.msg { max-width: 94%; padding: 10px 15px; border-radius: 14px; font-size: 14.5px; line-height: 1.65;
+  opacity: 0; transform: translateY(10px); transition: all .5s cubic-bezier(.2,.9,.3,1.1); }
+.msg.on { opacity: 1; transform: none; }
+.msg.user { align-self: flex-end; background: linear-gradient(94deg, #2f6bff, #5b6ff0); color: #fff;
+  border-bottom-right-radius: 4px; }
+.msg.bot { align-self: flex-start; background: rgba(44,58,96,.55); border: 1px solid rgba(130,160,230,.22);
+  color: #dfe8ff; border-bottom-left-radius: 4px; }
+.msg.bot .receipt { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; padding: 3px 10px;
+  border-radius: 7px; background: rgba(47,158,91,.16); border: 1px solid rgba(76,200,130,.4);
+  color: #9fe8b5; font-size: 12.5px; font-family: "Cascadia Code", Consolas, monospace; }
+.msg.bot .opts { display: flex; gap: 8px; margin-top: 9px; }
+.msg.bot .opts span { padding: 4px 14px; border-radius: 999px; border: 1px solid rgba(130,160,230,.4); font-size: 12.5px; color: #cfe0ff; }
+.msg.bot .opts span:first-child { background: rgba(59,130,246,.22); border-color: rgba(99,146,255,.6); }
+.typing { align-self: flex-start; display: flex; gap: 5px; padding: 12px 16px; opacity: 0; transition: opacity .3s; }
+.typing.on { opacity: 1; }
+.typing i { width: 7px; height: 7px; border-radius: 50%; background: #8ea3cc; animation: bounce 1.1s infinite; }
+.typing i:nth-child(2) { animation-delay: .15s; } .typing i:nth-child(3) { animation-delay: .3s; }
+@keyframes bounce { 30% { transform: translateY(-6px); } }
+.term { border-radius: 14px; overflow: hidden; background: #0a0f1c; border: 1px solid rgba(130,160,230,.2);
+  display: flex; flex-direction: column; animation: fadeup .7s .2s ease both;
+  box-shadow: 0 24px 70px rgba(0,0,0,.55); }
+.term-bar { height: 34px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 12px;
+  background: #101627; border-bottom: 1px solid rgba(130,160,230,.14); font-size: 12px; color: #8ea3cc; }
+.term-bar .dots { display: flex; gap: 6px; } .term-bar .dots i { width: 10px; height: 10px; border-radius: 50%; }
+.term-body { flex: 1; padding: 14px 16px; font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 12.5px; line-height: 1.85; color: #c9d7f2; overflow: hidden; }
+.term-body .line { white-space: nowrap; overflow: hidden; }
+.term-body .p { color: #6fe0a8; }
+.term-body .cmdwrap { display: inline-block; white-space: nowrap; }
+.term-body .cmd { color: #dfe9ff; }
+.caret { display: inline-block; width: 8px; height: 14px; background: #9dbdf5;
+  vertical-align: text-bottom; margin-left: 1px; animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.json div { opacity: 0; animation: fadeup .35s ease both; }
+.json .k { color: #7cb0ff; } .json .s { color: #9fe8b5; } .json .n { color: #f0a24a; }
+.json .ok-line { color: #8fd8a0; }
+
+/* ============ 场景 6 · 剪贴板捕获 ============ */
+#s6 .clip-cols { position: absolute; inset: 44px 48px 96px; display: grid;
+  grid-template-columns: 1.05fr 1fr; grid-template-rows: 1fr auto; gap: 26px 34px; }
+.clip-src { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+.clip-src-bar { height: 36px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 12px;
+  background: #101627; border-bottom: 1px solid rgba(130,160,230,.14); font-size: 12px; color: #8ea3cc; }
+.clip-src-bar .dots { display: flex; gap: 6px; } .clip-src-bar .dots i { width: 9px; height: 9px; border-radius: 50%; }
+.clip-body { flex: 1; padding: 16px 20px 12px; position: relative; }
+.clip-line { font-size: 15.5px; line-height: 2.05; color: #cdd8f0; }
+.clip-line .hl { border-radius: 4px; padding: 1px 2px; background: rgba(59,130,246,0); transition: background .45s; }
+.clip-line .hl.on { background: rgba(59,130,246,.32); }
+.key-chip { position: absolute; right: 18px; bottom: 12px; padding: 6px 14px; border-radius: 9px;
+  font-family: "Cascadia Code", Consolas, monospace; font-size: 13px; color: #dfe9ff;
+  background: rgba(30,42,74,.92); border: 1px solid rgba(130,160,230,.4); opacity: 0; transform: scale(.85);
+  transition: all .35s cubic-bezier(.2,.9,.3,1.3); }
+.key-chip.on { opacity: 1; transform: none; }
+.clip-result { padding: 13px 18px; display: flex; gap: 10px; align-items: center; }
+.clip-result .rl { font-size: 12.5px; color: #8ea3cc; flex: none; }
+.clip-entry { padding: 7px 10px; border-radius: 10px; font-size: 12px; color: #eef3ff;
+  border: 1px solid rgba(76,200,130,.4); background: rgba(16,50,34,.4); white-space: nowrap;
+  opacity: 0; transform: translateY(12px) scale(.9); transition: all .5s cubic-bezier(.2,.9,.3,1.2); }
+.clip-entry.on { opacity: 1; transform: none; }
+.clip-queue { padding: 0; display: flex; flex-direction: column; overflow: hidden; grid-row: 1 / span 2; }
+.clip-q-head { height: 36px; flex: none; display: flex; align-items: center; gap: 9px; padding: 0 14px;
+  background: #101627; border-bottom: 1px solid rgba(130,160,230,.14); font-size: 13px; color: #eef3ff; font-weight: 600; }
+.clip-auto { font-size: 10.5px; font-weight: 400; color: #8fd8a0; border: 1px solid rgba(76,200,130,.4);
+  border-radius: 999px; padding: 1px 8px; }
+.clip-list { flex: 1; padding: 10px 12px 6px; display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
+.clip-item { border: 1px solid rgba(130,160,230,.22); background: rgba(24,32,56,.6); border-radius: 10px;
+  padding: 9px 12px; font-size: 12.5px; color: #cdd8f0; line-height: 1.7; position: relative;
+  opacity: 0; transform: translateY(10px) scale(.97); transition: all .45s cubic-bezier(.2,.9,.3,1.15); }
+.clip-item.on { opacity: 1; transform: none; }
+.clip-item .ci-body { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.clip-item .ci-time { font-size: 10.5px; color: #6d7fa6; margin-top: 3px; }
+.clip-item .ci-ok { position: absolute; right: 10px; top: 8px; font-size: 11px; color: #8fd8a0; opacity: 0; transition: opacity .4s; }
+.clip-item.sent { border-color: rgba(76,200,130,.45); }
+.clip-item.sent .ci-ok { opacity: 1; }
+.clip-hint { font-size: 11.5px; color: #6d7fa6; padding: 2px 14px 0; }
+.clip-send { flex: none; margin: 10px 12px 12px; text-align: center; padding: 9px; border-radius: 9px;
+  background: linear-gradient(94deg,#2f6bff,#6d5cf0); color: #fff; font-size: 13.5px; font-weight: 600;
+  transition: filter .3s, transform .15s; }
+.clip-send.hot { animation: sendpulse 1.1s ease-in-out infinite; }
+@keyframes sendpulse { 50% { box-shadow: 0 0 22px rgba(59,118,246,.65); filter: brightness(1.12); } }
+.clip-send.hit { transform: scale(.95); filter: brightness(.85); animation: none; }
+
+/* ============ 场景 7 · 北航导入 ============ */
+#s7 .cols { position: absolute; inset: 40px 44px; display: grid; grid-template-columns: 430px 1fr; gap: 34px; }
 .card-modal { padding: 20px; height: fit-content; animation: fadeup .8s ease both; }
 .card-modal h3 { font-size: 17px; color: #eef3ff; margin-bottom: 14px; display: flex; align-items: center; gap: 9px; }
 .card-modal h3 .plug { width: 26px; height: 26px; border-radius: 8px; background: linear-gradient(135deg,#2f6bff,#7c3aed);
   display: inline-flex; align-items: center; justify-content: center; font-size: 13px; }
+.card-modal h3 .role-tag { margin-left: auto; font-size: 11px; font-weight: 400; color: #a9bde6;
+  border: 1px solid rgba(130,160,230,.3); border-radius: 999px; padding: 2px 10px; }
 .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 11px; }
 .field label { font-size: 12px; color: #8ea3cc; }
 .field .inp { padding: 7px 11px; border: 1px solid rgba(130,160,230,.3); border-radius: 8px;
@@ -210,7 +339,7 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
 @keyframes spin { to { transform: rotate(360deg); } }
 .pw-hint { margin-top: 12px; font-size: 12px; color: #7f92ba; display: flex; gap: 7px; align-items: center; }
 .pw-hint .shield { color: #8fd8a0; }
-#s4 .mini-panel { position: relative; border-radius: 14px; overflow: hidden; background: #0e1322;
+#s7 .mini-panel { position: relative; border-radius: 14px; overflow: hidden; background: #0e1322;
   border: 1px solid rgba(130,160,230,.18); display: flex; flex-direction: column; animation: fadeup .8s .25s ease both; }
 .signin-editor { position: absolute; z-index: 30; right: 18px; top: 96px; width: 264px; padding: 14px;
   border-radius: 12px; background: rgba(17,24,44,.97); border: 1px solid rgba(130,160,230,.3);
@@ -224,48 +353,8 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
 .signin-editor .ok { text-align: center; font-size: 12.5px; color: #8fd8a0; opacity: 0; transition: opacity .4s; }
 .signin-editor .ok.on { opacity: 1; }
 
-/* ============ 场景 5 · AI + CLI ============ */
-#s5 .cols { position: absolute; inset: 40px 44px; display: grid; grid-template-columns: 1fr 1.15fr; gap: 32px; }
-.chat { display: flex; flex-direction: column; gap: 12px; padding: 18px; animation: fadeup .7s ease both; }
-.chat .who { font-size: 11px; color: #6d7fa6; letter-spacing: 2px; }
-.msg { max-width: 94%; padding: 10px 15px; border-radius: 14px; font-size: 14.5px; line-height: 1.65;
-  opacity: 0; transform: translateY(10px); transition: all .5s cubic-bezier(.2,.9,.3,1.1); }
-.msg.on { opacity: 1; transform: none; }
-.msg.user { align-self: flex-end; background: linear-gradient(94deg, #2f6bff, #5b6f0); background: linear-gradient(94deg, #2f6bff, #5b6ff0); color: #fff;
-  border-bottom-right-radius: 4px; }
-.msg.bot { align-self: flex-start; background: rgba(44,58,96,.55); border: 1px solid rgba(130,160,230,.22);
-  color: #dfe8ff; border-bottom-left-radius: 4px; }
-.msg.bot .receipt { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; padding: 3px 10px;
-  border-radius: 7px; background: rgba(47,158,91,.16); border: 1px solid rgba(76,200,130,.4);
-  color: #9fe8b5; font-size: 12.5px; font-family: "Cascadia Code", Consolas, monospace; }
-.msg.bot .opts { display: flex; gap: 8px; margin-top: 9px; }
-.msg.bot .opts span { padding: 4px 14px; border-radius: 999px; border: 1px solid rgba(130,160,230,.4); font-size: 12.5px; color: #cfe0ff; }
-.msg.bot .opts span:first-child { background: rgba(59,130,246,.22); border-color: rgba(99,146,255,.6); }
-.typing { align-self: flex-start; display: flex; gap: 5px; padding: 12px 16px; opacity: 0; transition: opacity .3s; }
-.typing.on { opacity: 1; }
-.typing i { width: 7px; height: 7px; border-radius: 50%; background: #8ea3cc; animation: bounce 1.1s infinite; }
-.typing i:nth-child(2) { animation-delay: .15s; } .typing i:nth-child(3) { animation-delay: .3s; }
-@keyframes bounce { 30% { transform: translateY(-6px); } }
-.term { border-radius: 14px; overflow: hidden; background: #0a0f1c; border: 1px solid rgba(130,160,230,.2);
-  display: flex; flex-direction: column; animation: fadeup .7s .2s ease both;
-  box-shadow: 0 24px 70px rgba(0,0,0,.55); }
-.term-bar { height: 34px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 12px;
-  background: #101627; border-bottom: 1px solid rgba(130,160,230,.14); font-size: 12px; color: #8ea3cc; }
-.term-body { flex: 1; padding: 14px 16px; font-family: "Cascadia Code", Consolas, monospace;
-  font-size: 12.5px; line-height: 1.85; color: #c9d7f2; overflow: hidden; }
-.term-body .line { white-space: nowrap; overflow: hidden; }
-.term-body .p { color: #6fe0a8; }
-.term-body .cmdwrap { display: inline-block; white-space: nowrap; }
-.term-body .cmd { color: #dfe9ff; }
-.caret { display: inline-block; width: 8px; height: 14px; background: #9dbdf5;
-  vertical-align: text-bottom; margin-left: 1px; animation: blink 1s steps(1) infinite; }
-@keyframes blink { 50% { opacity: 0; } }
-.json div { opacity: 0; animation: fadeup .35s ease both; }
-.json .k { color: #7cb0ff; } .json .s { color: #9fe8b5; } .json .n { color: #f0a24a; }
-.json .ok-line { color: #8fd8a0; }
-
-/* ============ 场景 6 · 二游 + 桌宠 ============ */
-#s6 .cols { position: absolute; inset: 44px 48px; display: grid; grid-template-columns: 1fr 1fr; gap: 36px; }
+/* ============ 场景 8 · 二游 + 桌宠 ============ */
+#s8 .cols { position: absolute; inset: 44px 48px; display: grid; grid-template-columns: 1fr 1fr; gap: 36px; }
 .game-card { padding: 18px; }
 .game-card h3 { font-size: 16px; color: #eef3ff; margin-bottom: 4px; }
 .game-card h3 span { color: #8fb4ff; font-size: 12.5px; margin-left: 6px; font-weight: 400; }
@@ -319,11 +408,11 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
   display: flex; gap: 7px; align-items: center; opacity: 0; transition: opacity .3s; }
 .drag-chip.on { opacity: 1; }
 
-/* ============ 场景 7 · 插件矩阵 + 尾声 ============ */
-#s7 .head { position: absolute; top: 44px; left: 0; right: 0; text-align: center; transition: opacity .8s; }
-#s7 .head .h1 { font-size: 30px; font-weight: 700; color: #e8eefc; }
-#s7 .head .h2 { font-size: 14px; color: #8ea3cc; margin-top: 6px; }
-#s7 .pk-wrap { position: absolute; inset: 128px 60px 130px; display: grid;
+/* ============ 场景 9 · 插件矩阵 + 尾声 ============ */
+#s9 .head { position: absolute; top: 44px; left: 0; right: 0; text-align: center; transition: opacity .8s; }
+#s9 .head .h1 { font-size: 30px; font-weight: 700; color: #e8eefc; }
+#s9 .head .h2 { font-size: 14px; color: #8ea3cc; margin-top: 6px; }
+#s9 .pk-wrap { position: absolute; inset: 128px 60px 130px; display: grid;
   grid-template-columns: repeat(4, 1fr); gap: 18px; align-items: stretch; transition: opacity .8s; }
 .pk { padding: 18px 16px; display: flex; flex-direction: column; gap: 9px;
   opacity: 0; transform: translateY(30px) scale(.94); transition: all .6s cubic-bezier(.2,.9,.3,1.15); }
@@ -336,21 +425,21 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
 .pk .role { align-self: flex-start; font-size: 11px; padding: 2px 10px; border-radius: 999px; }
 .role.must { background: rgba(47,158,91,.18); color: #8fd8a0; border: 1px solid rgba(76,200,130,.4); }
 .role.opt { background: rgba(130,160,230,.14); color: #a9bde6; border: 1px solid rgba(130,160,230,.3); }
-#s7 .combo { position: absolute; left: 60px; right: 60px; bottom: 66px; display: flex; gap: 14px;
+#s9 .combo { position: absolute; left: 60px; right: 60px; bottom: 66px; display: flex; gap: 14px;
   justify-content: center; transition: opacity .8s; }
-#s7 .combo span { padding: 7px 18px; border-radius: 999px; font-size: 14px; color: #d4e2ff;
+#s9 .combo span { padding: 7px 18px; border-radius: 999px; font-size: 14px; color: #d4e2ff;
   background: rgba(44,62,110,.45); border: 1px solid rgba(130,160,230,.28);
   opacity: 0; transform: translateY(12px); transition: all .5s; }
-#s7 .combo span.on { opacity: 1; transform: none; }
-#s7 .endcard { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
+#s9 .combo span.on { opacity: 1; transform: none; }
+#s9 .endcard { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
   justify-content: center; gap: 16px; opacity: 0; transition: opacity 1.1s; z-index: 10;
   background: radial-gradient(700px 420px at 50% 60%, rgba(59,110,255,.16), transparent 70%); }
-#s7 .endcard.on { opacity: 1; }
-#s7 .endcard h2 { font-size: 58px; font-weight: 800; letter-spacing: 2px; }
-#s7 .endcard .repo { font-family: "Cascadia Code", Consolas, monospace; font-size: 17px; color: #8fb4ff; }
-#s7 .endcard .tail { font-size: 15.5px; color: #9fb2d8; display: flex; gap: 22px; }
-#s7 .endcard .pill { margin-top: 8px; display: flex; gap: 10px; }
-#s7 .endcard .pill span { padding: 5px 16px; border-radius: 999px; font-size: 13px; color: #cfe0ff;
+#s9 .endcard.on { opacity: 1; }
+#s9 .endcard h2 { font-size: 58px; font-weight: 800; letter-spacing: 2px; }
+#s9 .endcard .repo { font-family: "Cascadia Code", Consolas, monospace; font-size: 17px; color: #8fb4ff; }
+#s9 .endcard .tail { font-size: 15.5px; color: #9fb2d8; display: flex; gap: 22px; }
+#s9 .endcard .pill { margin-top: 8px; display: flex; gap: 10px; }
+#s9 .endcard .pill span { padding: 5px 16px; border-radius: 999px; font-size: 13px; color: #cfe0ff;
   border: 1px solid rgba(140,170,255,.3); background: rgba(40,60,110,.3); }
 
 /* ============ 叠加层 / 控件 ============ */
@@ -394,20 +483,20 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
   <div id="film">
     <div class="bg-deep"></div>
 
-    <!-- 场景 1 · 标题 -->
+    <!-- 场景 1 · 标题：通用日程软件 -->
     <section class="scene" id="s1" data-d="7.5">
       <div class="cam" id="cam1">
         <div class="gridfloor"></div>
         <div id="stars1"></div>
         <div class="center">
           <div class="logo-mark"><div class="cal"><i></i><i></i><i></i></div></div>
-          <h1 class="grad-text">BUAAer 智能日程</h1>
-          <div class="sub">为北航学生打造的 DeepSeek Harness 日程插件</div>
+          <h1 class="grad-text">智能日程</h1>
+          <div class="sub">DeepSeek Harness 里的通用日程软件</div>
           <div class="badges">
-            <div class="badge"><b>整学期课表</b>一键导入</div>
-            <div class="badge"><b>SPOC 作业</b>自动待办</div>
-            <div class="badge"><b>提醒</b>不错过每一场</div>
-            <div class="badge"><b>AI</b>说一句就写进日历</div>
+            <div class="badge"><b>便捷操作</b>右键拖拽就建日程</div>
+            <div class="badge"><b>AI 建日程</b>说一句就写进日历</div>
+            <div class="badge"><b>04:00</b>一天从凌晨四点开始</div>
+            <div class="badge"><b>剪贴板捕获</b>复制即收纳</div>
           </div>
         </div>
       </div>
@@ -418,26 +507,26 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
     <section class="scene" id="s2" data-d="9">
       <div class="cam">
         <div id="stars2"></div>
-        <div class="caption-a">课表在教务系统 · DDL 在智学北航 · 考试时间在通知群…</div>
-        <div class="caption-b">一次登录，整学期收进同一份日程</div>
+        <div class="caption-a">你的时间，散落在各个角落…</div>
+        <div class="caption-b">统统收进同一份日程</div>
         <div class="float-card glass float-a" style="left:8%;top:24%">
           <span class="dot" style="background:#3B82F6"></span>
-          <div>教务课表<small>每学期手动抄一遍？</small></div></div>
+          <div>课程表<small>躺在教务系统里</small></div></div>
         <div class="float-card glass float-b" style="left:63%;top:17%">
           <span class="dot" style="background:#F59E0B"></span>
-          <div>SPOC 作业<small>忘了提交的第七周…</small></div></div>
+          <div>作业 DDL<small>混在群聊记录中</small></div></div>
         <div class="float-card glass float-a" style="left:13%;top:58%">
           <span class="dot" style="background:#EF4444"></span>
-          <div>考试安排<small>时间地点全靠翻通知</small></div></div>
+          <div>考试安排<small>通知翻三遍才找齐</small></div></div>
         <div class="float-card glass float-b" style="left:56%;top:62%">
           <span class="dot" style="background:#06B6D4"></span>
-          <div>博雅选课<small>已选的、退选的、几点上课</small></div></div>
+          <div>会议 / 组会<small>消息里一闪而过</small></div></div>
         <div class="float-card glass float-a" style="left:37%;top:12%">
           <span class="dot" style="background:#A855F7"></span>
-          <div>组会 / 约谈<small>消息里一闪而过</small></div></div>
+          <div>直播 / 活动<small>动态里刷到才算数</small></div></div>
         <div class="float-card glass float-b" style="left:35%;top:70%">
           <span class="dot" style="background:#22C55E"></span>
-          <div>前瞻直播<small>定闹钟都怕错过</small></div></div>
+          <div>剪贴板里的安排<small>复制完就忘</small></div></div>
         <div class="converge-target" id="conv-target">
           <div class="logo-mark" style="width:88px;height:88px;border-radius:22px">
             <div class="cal" style="width:50px;height:50px"><i></i><i></i><i></i></div></div>
@@ -445,18 +534,18 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
       </div>
     </section>
 
-    <!-- 场景 3 · 周历演示 -->
+    <!-- 场景 3 · 周历主秀：便捷操作 -->
     <section class="scene" id="s3" data-d="21">
       <div class="cam" id="cam3">
         <div class="repl">
           <div class="repl-titlebar"><span class="dots"><i style="background:#f4564e"></i><i style="background:#f0a24a"></i><i style="background:#2f9e5b"></i></span>日程 · DeepSeek Harness</div>
-          <div class="repl-tabs"><div class="repl-tab on">日历</div><div class="repl-tab">任务</div><div class="repl-tab">队列</div></div>
+          <div class="repl-tabs"><div class="repl-tab on">日程</div><div class="repl-tab">任务</div><div class="repl-tab">剪贴板</div></div>
           <div class="rtoolbar">
             <span class="rbtn">← 上一周</span>
             <span class="rbadge">第 9 教学周 · 11-02 ~ 11-08</span>
             <span class="rbtn">下一周 →</span>
             <span class="rbtn primary">回今天</span>
-            <span class="rhint">拖拽移动 · 右键编辑 · 长按落草稿</span>
+            <span class="rhint">右键快速新建 · 拖拽排程 · 长按编辑 · Ctrl+Z 撤销</span>
           </div>
           <div class="rgrid-wrap">
             <div class="rgrid-head">
@@ -468,7 +557,7 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
           </div>
           <div class="rstrip" id="strip3">
             <span class="rchip overdue pop" style="animation-delay:.3s"><span class="tag">已过期</span>线代作业 P128</span>
-            <span class="rchip urgent pop" style="animation-delay:.55s"><span class="tag">今日 23:59</span>SPOC · 数据结构 第 5 次作业</span>
+            <span class="rchip urgent pop" style="animation-delay:.55s"><span class="tag">今日 23:59</span>数据结构 第 5 次作业</span>
             <span class="rchip pop" style="animation-delay:.8s"><span class="tag">本周</span>英语 Pre · 准备 slides</span>
             <span class="rchip pop" style="animation-delay:1.05s"><span class="tag">本周</span>高数答疑 周四 19:00</span>
           </div>
@@ -482,12 +571,114 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
       </div>
     </section>
 
-    <!-- 场景 4 · 北航导入 -->
-    <section class="scene" id="s4" data-d="17">
+    <!-- 场景 4 · 04:00 开始的一天 -->
+    <section class="scene" id="s4" data-d="11">
       <div class="cam" id="cam4">
+        <div class="day400 glass">
+          <div class="d4-head">
+            <div class="d4-title">一天，从凌晨 4:00 开始</div>
+            <div class="d4-sub">显示日按 04:00 切分 · 凌晨 0–4 点算前一天 · 符合晚睡作息</div>
+          </div>
+          <div class="d4-band">
+            <div class="d4-tick" style="left:0%"><span>20:00</span></div>
+            <div class="d4-tick" style="left:14.3%"><span>22:00</span></div>
+            <div class="d4-tick" style="left:28.6%"><span>0:00</span></div>
+            <div class="d4-tick" style="left:42.9%"><span>2:00</span></div>
+            <div class="d4-tick" style="left:57.1%"><span>4:00</span></div>
+            <div class="d4-tick" style="left:71.4%"><span>6:00</span></div>
+            <div class="d4-tick" style="left:85.7%"><span>8:00</span></div>
+            <div class="d4-seam" id="d4seam" style="left:57.1%"><em>显示日边界 · 04:00</em></div>
+            <div class="d4-block" id="d4b1" style="left:25%;width:11%"><b>联机开黑</b><span>23:30 – 01:00</span></div>
+            <div class="d4-block" id="d4b2" style="left:36.5%;width:11.5%"><b>赶论文 DDL</b><span>01:00 – 02:30</span></div>
+            <div class="d4-block" id="d4b3" style="left:85.7%;width:12.5%"><b>高等数学</b><span>08:00 – 09:45</span></div>
+          </div>
+          <div class="d4-zones">
+            <div class="d4-zone" id="d4z1" style="left:26%">← 都是「今晚」<span class="zz">显示日 · 周四</span></div>
+            <div class="d4-zone" id="d4z2" style="left:66%">「明天」<span class="zz">显示日 · 周五 →</span></div>
+          </div>
+          <div class="d4-compare">
+            <div class="d4-cmp bad" id="d4c1">✗ 普通日历 · 凌晨 2 点记到「明天」</div>
+            <div class="d4-cmp good" id="d4c2">✓ 这里 · 凌晨 2 点还是「今晚」</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 场景 5 · AI + CLI（CLI 为主） -->
+    <section class="scene" id="s5" data-d="16">
+      <div class="cam" id="cam5">
+        <div class="cols">
+          <div class="chat glass">
+            <div class="who">会话</div>
+            <div class="msg user" id="m-user">记一下：下周三 14:00 教三-401 组会</div>
+            <div class="typing" id="m-typing"><i></i><i></i><i></i></div>
+            <div class="msg bot" id="m-bot">已创建条目<b>「组会」</b>（11-11 周三 14:00–15:00 · 会议 · 教三-401）<span class="receipt">✓ ent_3f9k · 无冲突</span>
+              <div class="opts"><span>可以</span><span>不合适</span></div></div>
+            <div class="msg bot" id="m-bot2" style="font-size:13px;color:#9fb0d6">好的，提前 1 天提醒已加上（--remind-lead 1440）</div>
+          </div>
+          <div class="term">
+            <div class="term-bar"><span class="dots"><i style="background:#f4564e"></i><i style="background:#f0a24a"></i><i style="background:#2f9e5b"></i></span>schedule — Agent 与你共用的唯一 CLI</div>
+            <div class="term-body">
+              <div class="line" id="line1"><span class="p">$</span> <span class="cmdwrap" id="cw1"><span class="cmd" id="cmd5"></span><span class="caret"></span></span></div>
+              <div class="json" id="json5">
+                <div class="ok-line" style="animation-delay:.15s">✓ created · 1 entry</div>
+                <div style="animation-delay:.55s">{ <span class="k">"id"</span>: <span class="s">"ent_3f9k"</span>, <span class="k">"title"</span>: <span class="s">"组会"</span>, <span class="k">"category"</span>: <span class="s">"meeting"</span>,</div>
+                <div style="animation-delay:.95s">&nbsp;&nbsp;<span class="k">"start"</span>: <span class="s">"2026-11-11T14:00:00+08:00"</span>, <span class="k">"end"</span>: <span class="s">"…15:00"</span>, <span class="k">"conflicts"</span>: [] }</div>
+              </div>
+              <div class="line" id="line2" style="opacity:0;transition:opacity .4s"><span class="p">$</span> <span class="cmdwrap" id="cw2"><span class="cmd" id="cmd6"></span><span class="caret"></span></span></div>
+              <div class="json" id="json6" style="margin-top:0">
+                <div class="ok-line" style="animation-delay:.15s">✓ updated · remindLead 1440</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="toast" id="toast5">CLI 为主 · 命令按需 --help 发现 · 不占常态系统提示词</div>
+      </div>
+    </section>
+
+    <!-- 场景 6 · 剪贴板捕获 -->
+    <section class="scene" id="s6" data-d="14">
+      <div class="cam" id="cam6">
+        <div class="clip-cols">
+          <div class="clip-src glass">
+            <div class="clip-src-bar"><span class="dots"><i style="background:#f4564e"></i><i style="background:#f0a24a"></i><i style="background:#2f9e5b"></i></span>群公告 · 今晚更新</div>
+            <div class="clip-body">
+              <div class="clip-line"><span class="hl" id="hl1">【通知】周四 19:30 版本前瞻直播，</span></div>
+              <div class="clip-line"><span class="hl" id="hl2">周五 14:00 大创组会，带进展 PPT；</span></div>
+              <div class="clip-line"><span class="hl" id="hl3">周六 10:00 图书馆还书截止。</span></div>
+              <div class="key-chip" id="clip-ctrlc">Ctrl + C 已复制</div>
+            </div>
+          </div>
+          <div class="clip-queue glass">
+            <div class="clip-q-head">剪贴板队列 <span class="clip-auto">自动收录</span></div>
+            <div class="clip-list">
+              <div class="clip-item" id="clip-item1">
+                <div class="ci-body">【通知】周四 19:30 版本前瞻直播，周五 14:00 大创组会，带进展 PPT；周六 10:00 图书馆还书截止。</div>
+                <div class="ci-time">刚刚 · 来自剪贴板</div>
+                <div class="ci-ok">✓ 已发送</div>
+              </div>
+            </div>
+            <div class="clip-hint">复制的内容会自动出现在这里，重复内容只收录一次。</div>
+            <div class="clip-send" id="clip-send">发送到新会话</div>
+          </div>
+          <div class="clip-result glass">
+            <span class="rl">新会话 · AI 写入 →</span>
+            <span class="clip-entry" id="ce1">✓ 周四 19:30 前瞻</span>
+            <span class="clip-entry" id="ce2">✓ 周五 14:00 组会</span>
+            <span class="clip-entry" id="ce3">✓ 周六 10:00 还书</span>
+          </div>
+        </div>
+        <div class="drag-chip" id="clip-fly" style="left:18%;top:44%">📋 检测到复制</div>
+        <div class="toast" id="toast6" style="bottom:auto;top:26px">已发送到新会话 · AI 正在读取</div>
+      </div>
+    </section>
+
+    <!-- 场景 7 · 来源适配器示例：北航教务 -->
+    <section class="scene" id="s7" data-d="13">
+      <div class="cam" id="cam7">
         <div class="cols">
           <div class="card-modal glass">
-            <h3><span class="plug">航</span>北航教务来源</h3>
+            <h3><span class="plug">航</span>北航教务来源<span class="role-tag">来源适配器</span></h3>
             <div class="field"><label>学号</label><div class="inp mono" id="f-sid"></div></div>
             <div class="field"><label>统一认证密码</label><div class="inp mono pw" id="f-pw"></div></div>
             <div class="field"><label>学期起点（第一周周一）</label><div class="inp">2026-09-14</div></div>
@@ -521,41 +712,9 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
       </div>
     </section>
 
-    <!-- 场景 5 · AI + CLI -->
-    <section class="scene" id="s5" data-d="16">
-      <div class="cam" id="cam5">
-        <div class="cols">
-          <div class="chat glass">
-            <div class="who">会话</div>
-            <div class="msg user" id="m-user">记一下：下周三 14:00 教三-401 组会</div>
-            <div class="typing" id="m-typing"><i></i><i></i><i></i></div>
-            <div class="msg bot" id="m-bot">已创建条目<b>「组会」</b>（11-11 周三 14:00–15:00 · 会议 · 教三-401）<span class="receipt">✓ ent_3f9k · 无冲突</span>
-              <div class="opts"><span>可以</span><span>不合适</span></div></div>
-            <div class="msg bot" id="m-bot2" style="font-size:13px;color:#9fb0d6">好的，提前 1 天提醒已加上（--remind-lead 1440）</div>
-          </div>
-          <div class="term">
-            <div class="term-bar"><span class="dots"><i style="background:#f4564e"></i><i style="background:#f0a24a"></i><i style="background:#2f9e5b"></i></span>schedule — 认证 CLI</div>
-            <div class="term-body">
-              <div class="line" id="line1"><span class="p">$</span> <span class="cmdwrap" id="cw1"><span class="cmd" id="cmd5"></span><span class="caret"></span></span></div>
-              <div class="json" id="json5">
-                <div class="ok-line" style="animation-delay:.15s">✓ created · 1 entry</div>
-                <div style="animation-delay:.55s">{ <span class="k">"id"</span>: <span class="s">"ent_3f9k"</span>, <span class="k">"title"</span>: <span class="s">"组会"</span>, <span class="k">"category"</span>: <span class="s">"meeting"</span>,</div>
-                <div style="animation-delay:.95s">&nbsp;&nbsp;<span class="k">"start"</span>: <span class="s">"2026-11-11T14:00:00+08:00"</span>, <span class="k">"end"</span>: <span class="s">"…15:00"</span>, <span class="k">"conflicts"</span>: [] }</div>
-              </div>
-              <div class="line" id="line2" style="opacity:0;transition:opacity .4s"><span class="p">$</span> <span class="cmdwrap" id="cw2"><span class="cmd" id="cmd6"></span><span class="caret"></span></span></div>
-              <div class="json" id="json6" style="margin-top:0">
-                <div class="ok-line" style="animation-delay:.15s">✓ updated · remindLead 1440</div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="toast" id="toast5">Agent 与你用的是同一套 schedule CLI · 回执即真相</div>
-      </div>
-    </section>
-
-    <!-- 场景 6 · 二游 + 桌宠 -->
-    <section class="scene" id="s6" data-d="15">
-      <div class="cam" id="cam6">
+    <!-- 场景 8 · 二游前瞻 + 桌宠桥 -->
+    <section class="scene" id="s8" data-d="10.5">
+      <div class="cam" id="cam8">
         <div class="cols">
           <div class="game-card glass">
             <h3>二游前瞻<span>@lidozs55/dsh-schedule-gacha</span></h3>
@@ -588,15 +747,15 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
             <div style="margin-top:10px;font-size:12.5px;color:#7f92ba">桌宠桥 · 气泡提醒 / 任务状态 / 拖文字给桌宠收纳</div>
           </div>
         </div>
-        <div class="drag-chip" id="chip6" style="left:12%;top:28%">🗓 11-20 19:30 原神前瞻</div>
+        <div class="drag-chip" id="chip8" style="left:12%;top:28%">🗓 11-20 19:30 原神前瞻</div>
       </div>
     </section>
 
-    <!-- 场景 7 · 插件矩阵 + 尾声 -->
-    <section class="scene" id="s7" data-d="18">
-      <div class="cam" id="cam7">
+    <!-- 场景 9 · 插件矩阵 + 尾声 -->
+    <section class="scene" id="s9" data-d="16">
+      <div class="cam" id="cam9">
         <div class="head">
-          <div class="h1">四个插件，按需组合</div>
+          <div class="h1">一个核心，适配器按需装</div>
           <div class="h2">DSH 宿主 → Plugins → 粘贴包名安装</div>
         </div>
         <div class="pk-wrap">
@@ -605,26 +764,26 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
             <p>日历条目 · 任务 · 提醒 · schedule CLI · 面板 UI</p>
             <span class="role must">必装</span></div>
           <div class="pk glass"><span class="ic" style="background:linear-gradient(135deg,#e0483e,#f0a24a)">航</span>
-            <h3>北航教务</h3><div class="nm">@buaaer/dsh-schedule-buaa</div>
+            <h3>北航教务</h3><div class="nm">@lidozs55/dsh-schedule-buaa</div>
             <p>整学期课表/考试 · SPOC 作业 · 博雅课程 · iclass 签到</p>
-            <span class="role must">北航学生</span></div>
+            <span class="role opt">来源适配器</span></div>
           <div class="pk glass"><span class="ic" style="background:linear-gradient(135deg,#a855f7,#38e0d0)">🎮</span>
             <h3>二游前瞻</h3><div class="nm">@lidozs55/dsh-schedule-gacha</div>
             <p>六款游戏 · 版本与前瞻直播自动写入日程</p>
-            <span class="role opt">可选</span></div>
+            <span class="role opt">来源适配器</span></div>
           <div class="pk glass"><span class="ic" style="background:linear-gradient(135deg,#22C55E,#06B6D4)">🐾</span>
             <h3>桌宠桥</h3><div class="nm">@lidozs55/dsh-schedule-bridge</div>
             <p>提醒气泡 · 任务状态上桌宠 · 拖放收纳</p>
             <span class="role opt">可选</span></div>
         </div>
         <div class="combo">
-          <span>北航学生 = 核心 + 北航</span>
+          <span>只装核心 = 通用日程软件</span>
+          <span>北航学生 = + 北航适配器</span>
           <span>追前瞻 = + 二游</span>
-          <span>桌宠党 = + 桥</span>
-          <span>其他学校 = 只装核心，或写你的适配器</span>
+          <span>其他学校 = 写你的适配器</span>
         </div>
-        <div class="endcard" id="end7">
-          <h2 class="grad-text">BUAAer 智能日程</h2>
+        <div class="endcard" id="end9">
+          <h2 class="grad-text">智能日程</h2>
           <div class="repo">github.com/Lidozs55/dsh-schedule-plugins</div>
           <div class="tail"><span>欢迎 Issue / PR</span><span>欢迎为你的学校写适配器</span></div>
           <div class="pill"><span>MIT License</span><span>DeepSeek Harness 插件</span><span>npm · @lidozs55/dsh-schedule</span></div>
@@ -644,7 +803,7 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
     </div>
     <div id="gate">
       <div class="big-play"></div>
-      <div class="t1">BUAAer 智能日程 · 宣传片（约 1 分 44 秒）</div>
+      <div class="t1">智能日程 · 宣传片（约 2 分钟）</div>
       <div class="t2">点击开始 · 空格暂停 · ←→ 跳幕 · H 隐藏控件</div>
     </div>
   </div>
@@ -774,7 +933,7 @@ function block(day, startH, durH, color, title, sub) {
   day.appendChild(b); return b;
 }
 
-/* ---- 场景 3：主周历 ---- */
+/* ---- 场景 3（index 2）：主周历 ---- */
 const days3 = buildGrid("rg3", GUT);
 const E = {
   gaoshu: block(days3[0], 8, 1.7, C.course, "高等数学 A(2)", "一 101 · 1-16周"),
@@ -826,8 +985,8 @@ tween(2, 0, 6, p => { const e = easeOut(p);
   cam3.style.transform = `scale(${1.22 - .22 * e}) translate(${-3 + 3 * e}%, ${2 - 2 * e}%)`; });
 const wave = [E.gaoshu, E.ds, E.phys, E.eng, E.signal, E.comp, E.prob, E.zuhui, E.selfs, E.boya, E.pe, E.zzz];
 wave.forEach((b, i) => beat(2, 0.7 + i * 0.3, () => { b.style.opacity = ""; b.classList.add("pop"); }));
-setCaption(2, 1.2, "整学期课表 · 一次导入，周次自动换算", 4.2);
-setCaption(2, 6.2, "今天在哪、接下来是什么，一眼看到", 3.8);
+setCaption(2, 1.2, "整周安排 · 一屏看清", 3.6);
+setCaption(2, 6.2, "今天在哪、接下来是什么，一眼看到", 3.4);
 
 /* 拖拽叙事：抓起体育(三16:00) → 试探(三14:00)冲突 → 改落(五16:00) */
 let dragGeom = null;
@@ -863,49 +1022,26 @@ setCaption(2, 18.7, "空白处拖一下，就是一条新日程", 2.2);
 tween(2, 15.4, 21, p => { const e = ease(p);
   cam3.style.transform = `scale(${1.19 - .19 * e}) translateX(${-7 + 7 * e}%)`; });
 
-/* ---- 场景 4：北航导入 ---- */
-const days4 = buildGrid("rg4", 30);
+/* ---- 场景 4（index 3）：04:00 开始的一天 ---- */
+const cam4 = document.getElementById("cam4");
 RESETS[3] = () => {
-  document.getElementById("f-sid").textContent = "";
-  document.getElementById("f-pw").textContent = "";
-  const btn = document.getElementById("import-btn");
-  btn.classList.remove("busy", "act");
-  document.querySelectorAll("#prog4 li").forEach(li => { li.classList.remove("on", "done"); li.querySelector(".st").textContent = ""; });
-  document.getElementById("signin4").classList.remove("on");
-  document.getElementById("signin-go").style.display = ""; document.getElementById("signin-go").style.opacity = "";
-  document.getElementById("signin-ok").classList.remove("on");
-  document.getElementById("toast4").classList.remove("on");
-  days4.forEach(d => d.querySelectorAll(".rblock").forEach(n => n.remove()));
-  document.getElementById("cam4").style.transform = "";
+  ["d4seam", "d4b1", "d4b2", "d4b3", "d4z1", "d4z2", "d4c1", "d4c2"]
+    .forEach(id => document.getElementById(id).classList.remove("on"));
+  cam4.style.transform = "";
 };
-typeText(3, 0.6, 8, document.getElementById("f-sid"), "23377104");
-typeText(3, 1.8, 6, document.getElementById("f-pw"), "••••••");
-beat(3, 3.3, () => document.getElementById("import-btn").classList.add("act", "busy"));
-document.querySelectorAll("#prog4 li").forEach((li, i) => {
-  beat(3, 3.9 + i * 1.3, () => li.classList.add("on"));
-  beat(3, 4.8 + i * 1.3, () => { li.classList.remove("on"); li.classList.add("done"); li.querySelector(".st").textContent = "✓"; });
-});
-const fill4 = [
-  [0, 8, 1.7, C.course, "高等数学"], [0, 10, 1.7, C.course, "数据结构"],
-  [1, 8, 1.7, C.course, "大学物理"], [1, 14, 1.7, C.course, "英语"],
-  [2, 8, 1.7, C.course, "信号与系统"], [2, 14, 1, C.meeting, "组会"],
-  [2, 16, 1, C.sports, "体育"], [3, 10, 1.7, C.course, "计组"],
-  [3, 19, 1.5, C.study, "晚自习"], [4, 8, 1.7, C.course, "概率论"],
-  [4, 18.5, 1.5, C.study, "博雅·昆曲"], [6, 19.5, 1.5, C.other, "绝区零前瞻"],
-];
-fill4.forEach((f, i) => beat(3, 5.6 + i * 0.26, () => {
-  const b = block(days4[f[0]], f[1], f[2], f[3], f[4], ""); b.classList.add("pop"); }));
-setCaption(3, 1.0, "学号 + 密码，一次导入整学期", 3.2);
-setCaption(3, 8.4, "课表 · 考试 · SPOC 作业 · 博雅课程，同一次登录", 4.2);
-beat(3, 12.2, () => document.getElementById("signin4").classList.add("on"));
-beat(3, 13.3, () => document.getElementById("signin-go").style.opacity = ".55");
-beat(3, 14.2, () => { const go = document.getElementById("signin-go"); go.style.display = "none";
-  document.getElementById("signin-ok").classList.add("on"); });
-setCaption(3, 12.5, "当天课程，编辑器里直接 iclass 远程签到", 3.4);
-beat(3, 15.3, () => document.getElementById("toast4").classList.add("on"));
-tween(3, 0, 5, p => document.getElementById("cam4").style.transform = `translateY(${10 - 10 * easeOut(p)}px)`);
+tween(3, 0, 6, p => cam4.style.transform = `scale(${1.06 - .06 * easeOut(p)})`);
+beat(3, 0.7, () => document.getElementById("d4seam").classList.add("on"));
+beat(3, 1.6, () => document.getElementById("d4b1").classList.add("on"));
+beat(3, 2.1, () => document.getElementById("d4b2").classList.add("on"));
+beat(3, 3.2, () => document.getElementById("d4z1").classList.add("on"));
+beat(3, 5.0, () => document.getElementById("d4b3").classList.add("on"));
+beat(3, 5.6, () => document.getElementById("d4z2").classList.add("on"));
+beat(3, 7.0, () => document.getElementById("d4c1").classList.add("on"));
+beat(3, 7.8, () => document.getElementById("d4c2").classList.add("on"));
+setCaption(3, 1.2, "显示日按 04:00 切分 · 0–4 点算前一天", 4.0);
+setCaption(3, 6.0, "熬夜排的事，落在「今晚」而不是「明天」", 4.0);
 
-/* ---- 场景 5：AI + CLI ---- */
+/* ---- 场景 5（index 4）：AI + CLI ---- */
 RESETS[4] = () => {
   ["m-user", "m-bot", "m-bot2"].forEach(id => document.getElementById(id).classList.remove("on"));
   document.getElementById("m-typing").classList.remove("on");
@@ -933,63 +1069,148 @@ typeText(4, 8.1, 26, document.getElementById("cmd6"),
   document.getElementById("cw2"));
 beat(4, 9.6, () => document.getElementById("json6").classList.add("on"));
 setCaption(4, 1.0, "对 AI 说一句就够了", 3.0);
-setCaption(4, 5.6, "Agent 走的是认证 schedule CLI · 回执即真相", 3.8);
+setCaption(4, 5.6, "Agent 只带一个 schedule CLI · 按需发现 · 不占常态提示词", 4.2);
 beat(4, 12.6, () => document.getElementById("toast5").classList.add("on"));
 
-/* ---- 场景 6：二游 + 桌宠 ---- */
+/* ---- 场景 6（index 5）：剪贴板捕获 ---- */
+const cam6 = document.getElementById("cam6");
+const flyEl = document.getElementById("clip-fly");
 RESETS[5] = () => {
-  document.querySelectorAll("#s6 .game-row").forEach(r => r.classList.remove("on"));
-  document.querySelectorAll("#s6 .tgl").forEach(t => t.classList.remove("on"));
-  document.querySelectorAll("#s6 .dcell .evt").forEach(e => e.classList.remove("on"));
-  ["pb1", "pb2"].forEach(id => document.getElementById(id).classList.remove("on"));
-  const chip = document.getElementById("chip6");
-  chip.classList.remove("on"); chip.style.left = "12%"; chip.style.top = "28%"; chip.style.transform = "";
+  ["hl1", "hl2", "hl3"].forEach(id => document.getElementById(id).classList.remove("on"));
+  document.getElementById("clip-ctrlc").classList.remove("on");
+  const item = document.getElementById("clip-item1");
+  item.classList.remove("on", "sent");
+  document.getElementById("clip-send").classList.remove("hot", "hit");
+  ["ce1", "ce2", "ce3"].forEach(id => document.getElementById(id).classList.remove("on"));
+  flyEl.classList.remove("on"); flyEl.style.left = "18%"; flyEl.style.top = "44%"; flyEl.style.transform = "";
+  document.getElementById("toast6").classList.remove("on");
+  cam6.style.transform = "";
 };
-document.querySelectorAll("#s6 .game-row").forEach((row, i) => {
-  beat(5, 0.5 + i * 0.42, () => row.classList.add("on"));
-  beat(5, 0.8 + i * 0.42, () => row.querySelector(".tgl").classList.add("on"));
+tween(5, 0, 6, p => cam6.style.transform = `scale(${1.05 - .05 * easeOut(p)})`);
+beat(5, 1.3, () => document.getElementById("hl1").classList.add("on"));
+beat(5, 1.8, () => document.getElementById("hl2").classList.add("on"));
+beat(5, 2.3, () => document.getElementById("hl3").classList.add("on"));
+beat(5, 2.9, () => document.getElementById("clip-ctrlc").classList.add("on"));
+beat(5, 3.6, () => flyEl.classList.add("on"));
+tween(5, 3.7, 4.7, p => { const e = ease(p);
+  flyEl.style.left = (18 + 48 * e) + "%"; flyEl.style.top = (44 - 3 * e) + "%";
+  flyEl.style.transform = `scale(${1 - .25 * e}) rotate(${-5 * Math.sin(Math.PI * e)}deg)`; });
+beat(5, 4.8, () => { flyEl.classList.remove("on");
+  document.getElementById("clip-item1").classList.add("on"); });
+setCaption(5, 5.4, "复制的内容自动进队列 · 看到就存，不怕忘", 4.0);
+beat(5, 6.6, () => document.getElementById("clip-send").classList.add("hot"));
+beat(5, 7.7, () => { const send = document.getElementById("clip-send");
+  send.classList.remove("hot"); send.classList.add("hit"); });
+beat(5, 8.0, () => { document.getElementById("clip-item1").classList.add("sent");
+  document.getElementById("toast6").classList.add("on"); });
+beat(5, 8.8, () => document.getElementById("ce1").classList.add("on"));
+beat(5, 9.4, () => document.getElementById("ce2").classList.add("on"));
+beat(5, 10.0, () => document.getElementById("ce3").classList.add("on"));
+setCaption(5, 9.8, "一键发到新会话，AI 把安排写进日程", 3.2);
+beat(5, 12.9, () => document.getElementById("toast6").classList.remove("on"));
+
+/* ---- 场景 7（index 6）：北航导入 ---- */
+const days4 = buildGrid("rg4", 30);
+const cam7 = document.getElementById("cam7");
+RESETS[6] = () => {
+  document.getElementById("f-sid").textContent = "";
+  document.getElementById("f-pw").textContent = "";
+  const btn = document.getElementById("import-btn");
+  btn.classList.remove("busy", "act");
+  document.querySelectorAll("#prog4 li").forEach(li => { li.classList.remove("on", "done"); li.querySelector(".st").textContent = ""; });
+  document.getElementById("signin4").classList.remove("on");
+  document.getElementById("signin-go").style.display = ""; document.getElementById("signin-go").style.opacity = "";
+  document.getElementById("signin-ok").classList.remove("on");
+  document.getElementById("toast4").classList.remove("on");
+  days4.forEach(d => d.querySelectorAll(".rblock").forEach(n => n.remove()));
+  cam7.style.transform = "";
+};
+typeText(6, 0.6, 9, document.getElementById("f-sid"), "23377104");
+typeText(6, 1.7, 6, document.getElementById("f-pw"), "••••••");
+beat(6, 3.1, () => document.getElementById("import-btn").classList.add("act", "busy"));
+document.querySelectorAll("#prog4 li").forEach((li, i) => {
+  beat(6, 3.6 + i * 1.15, () => li.classList.add("on"));
+  beat(6, 4.4 + i * 1.15, () => { li.classList.remove("on"); li.classList.add("done"); li.querySelector(".st").textContent = "✓"; });
 });
-document.querySelectorAll("#s6 .dcell .evt").forEach((e, i) => beat(5, 3.6 + i * 0.45, () => e.classList.add("on")));
-beat(5, 6.5, () => document.getElementById("pb1").classList.add("on"));
-setCaption(5, 0.8, "六款游戏 · 前瞻直播自动进日程（官方时间自动加锁）", 4.4);
-setCaption(5, 6.8, "桌宠气泡提醒 · 任务状态 · 拖段文字过去就能收纳", 4.4);
-beat(5, 9.6, () => document.getElementById("chip6").classList.add("on"));
-tween(5, 10.0, 11.8, p => { const e = ease(p); const chip = document.getElementById("chip6");
+const fill4 = [
+  [0, 8, 1.7, C.course, "高等数学"], [0, 10, 1.7, C.course, "数据结构"],
+  [1, 8, 1.7, C.course, "大学物理"], [1, 14, 1.7, C.course, "英语"],
+  [2, 8, 1.7, C.course, "信号与系统"], [2, 14, 1, C.meeting, "组会"],
+  [2, 16, 1, C.sports, "体育"], [3, 10, 1.7, C.course, "计组"],
+  [3, 19, 1.5, C.study, "晚自习"], [4, 8, 1.7, C.course, "概率论"],
+  [4, 18.5, 1.5, C.study, "博雅·昆曲"], [6, 19.5, 1.5, C.other, "绝区零前瞻"],
+];
+fill4.forEach((f, i) => beat(6, 5.0 + i * 0.22, () => {
+  const b = block(days4[f[0]], f[1], f[2], f[3], f[4], ""); b.classList.add("pop"); }));
+setCaption(6, 0.9, "来源适配器示例：北航教务 · 学号密码一次导入", 3.4);
+setCaption(6, 7.6, "课表 · 考试 · SPOC 作业 · 博雅，同一次登录全进来", 3.6);
+beat(6, 9.4, () => document.getElementById("signin4").classList.add("on"));
+beat(6, 10.2, () => document.getElementById("signin-go").style.opacity = ".55");
+beat(6, 10.9, () => { const go = document.getElementById("signin-go"); go.style.display = "none";
+  document.getElementById("signin-ok").classList.add("on"); });
+setCaption(6, 9.8, "当天课程，编辑器里直接 iclass 远程签到", 3.0);
+beat(6, 11.6, () => document.getElementById("toast4").classList.add("on"));
+tween(6, 0, 5, p => cam7.style.transform = `translateY(${10 - 10 * easeOut(p)}px)`);
+
+/* ---- 场景 8（index 7）：二游 + 桌宠 ---- */
+const cam8 = document.getElementById("cam8");
+RESETS[7] = () => {
+  document.querySelectorAll("#s8 .game-row").forEach(r => r.classList.remove("on"));
+  document.querySelectorAll("#s8 .tgl").forEach(tg => tg.classList.remove("on"));
+  document.querySelectorAll("#s8 .dcell .evt").forEach(ev => ev.classList.remove("on"));
+  ["pb1", "pb2"].forEach(id => document.getElementById(id).classList.remove("on"));
+  const chip = document.getElementById("chip8");
+  chip.classList.remove("on"); chip.style.left = "12%"; chip.style.top = "28%"; chip.style.transform = "";
+  cam8.style.transform = "";
+};
+document.querySelectorAll("#s8 .game-row").forEach((row, i) => {
+  beat(7, 0.4 + i * 0.32, () => row.classList.add("on"));
+  beat(7, 0.64 + i * 0.32, () => row.querySelector(".tgl").classList.add("on"));
+});
+document.querySelectorAll("#s8 .dcell .evt").forEach((ev, i) => beat(7, 2.9 + i * 0.33, () => ev.classList.add("on")));
+beat(7, 5.3, () => document.getElementById("pb1").classList.add("on"));
+setCaption(7, 0.7, "二游前瞻适配器 · 官方时间自动加锁进日程", 4.0);
+setCaption(7, 5.6, "桌宠桥 · 气泡提醒 / 拖段文字过去就能收纳", 4.0);
+beat(7, 8.1, () => document.getElementById("chip8").classList.add("on"));
+tween(7, 8.4, 9.5, p => { const e = ease(p); const chip = document.getElementById("chip8");
   chip.style.left = (12 + 26 * e) + "%"; chip.style.top = (28 + 24 * e) + "%";
   chip.style.transform = `scale(${1 - .3 * e}) rotate(${-6 * Math.sin(Math.PI * e)}deg)`; });
-beat(5, 11.8, () => { document.getElementById("chip6").classList.remove("on");
+beat(7, 9.5, () => { document.getElementById("chip8").classList.remove("on");
   document.getElementById("pb1").classList.remove("on");
   document.getElementById("pb2").classList.add("on"); });
 
-/* ---- 场景 7：插件矩阵 + 尾声 ---- */
-RESETS[6] = () => {
-  document.querySelectorAll("#s7 .pk").forEach(p => p.classList.remove("on"));
-  document.querySelectorAll("#s7 .combo span").forEach(s => s.classList.remove("on"));
-  document.querySelectorAll("#s7 .head, #s7 .pk-wrap, #s7 .combo").forEach(n => n.style.opacity = "");
-  document.getElementById("end7").classList.remove("on");
+/* ---- 场景 9（index 8）：插件矩阵 + 尾声 ---- */
+const cam9 = document.getElementById("cam9");
+RESETS[8] = () => {
+  document.querySelectorAll("#s9 .pk").forEach(p => p.classList.remove("on"));
+  document.querySelectorAll("#s9 .combo span").forEach(s => s.classList.remove("on"));
+  document.querySelectorAll("#s9 .head, #s9 .pk-wrap, #s9 .combo").forEach(n => n.style.opacity = "");
+  document.getElementById("end9").classList.remove("on");
+  cam9.style.transform = "";
 };
-document.querySelectorAll("#s7 .pk").forEach((p, i) => beat(6, 0.4 + i * 0.5, () => p.classList.add("on")));
-document.querySelectorAll("#s7 .combo span").forEach((s, i) => beat(6, 2.8 + i * 0.45, () => s.classList.add("on")));
-setCaption(6, 1.2, "核心 + 来源适配器，按需组合", 3.4);
-beat(6, 7.4, () => document.querySelectorAll("#s7 .head, #s7 .pk-wrap, #s7 .combo")
+document.querySelectorAll("#s9 .pk").forEach((p, i) => beat(8, 0.4 + i * 0.5, () => p.classList.add("on")));
+document.querySelectorAll("#s9 .combo span").forEach((s, i) => beat(8, 2.8 + i * 0.45, () => s.classList.add("on")));
+setCaption(8, 1.2, "通用日程核心 + 来源适配器，按需组合", 3.4);
+beat(8, 7.4, () => document.querySelectorAll("#s9 .head, #s9 .pk-wrap, #s9 .combo")
   .forEach(n => n.style.opacity = "0"));
-beat(6, 7.9, () => document.getElementById("end7").classList.add("on"));
-tween(6, 8.2, 18, p => document.getElementById("cam7").style.transform = `scale(${1 + .045 * easeOut(p)})`);
+beat(8, 7.9, () => document.getElementById("end9").classList.add("on"));
+tween(8, 8.2, 16, p => cam9.style.transform = `scale(${1 + .045 * easeOut(p)})`);
 
 /* ---- 场景 1 / 2 ---- */
 RESETS[0] = () => document.getElementById("cam1").style.transform = "";
 tween(0, 0, 7.5, p => document.getElementById("cam1").style.transform =
   `scale(${1.16 - .16 * easeOut(p)}) translateY(${8 - 8 * easeOut(p)}px)`);
-setCaption(1, 1.4, "北航学生的日程，值得一个专门的插件", 3.4);
+setCaption(0, 1.4, "一个通用日程软件，长在 DSH 宿主里", 3.4);
 RESETS[1] = () => {
   document.querySelectorAll("#s2 .float-card").forEach(c => { c.style.opacity = ""; c.style.transform = ""; });
   document.getElementById("conv-target").classList.remove("on");
   document.querySelector("#s2 .caption-b").style.opacity = "0";
   document.querySelector("#s2 .caption-a").style.opacity = "1";
 };
-setCaption(1, 4.3, "一次登录，整学期收进同一份日程", 2.4);
+setCaption(1, 1.4, "课程、DDL、会议、直播……散落在每个应用里", 2.6);
 beat(1, 4.2, () => { document.querySelector("#s2 .caption-a").style.opacity = "0";
   document.querySelector("#s2 .caption-b").style.opacity = "1"; });
+setCaption(1, 4.4, "统统收进同一份日程", 2.2);
 document.querySelectorAll("#s2 .float-card").forEach((c, i) => beat(1, 4.6 + i * 0.08, () => {
   // 用布局坐标（未缩放）计算向画布中心的收敛位移
   const dx = 640 - (c.offsetLeft + c.offsetWidth / 2);

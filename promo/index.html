@@ -249,9 +249,9 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
 .term-bar .dots { display: flex; gap: 6px; } .term-bar .dots i { width: 10px; height: 10px; border-radius: 50%; }
 .term-body { flex: 1; padding: 14px 16px; font-family: "Cascadia Code", Consolas, monospace;
   font-size: 12.5px; line-height: 1.85; color: #c9d7f2; overflow: hidden; }
-.term-body .line { white-space: nowrap; overflow: hidden; }
+.term-body .line { overflow: hidden; }
 .term-body .p { color: #6fe0a8; }
-.term-body .cmdwrap { display: inline-block; white-space: nowrap; }
+.term-body .cmdwrap { display: inline; white-space: normal; } /* 长命令在终端内自然折行，保持完整可读 */
 .term-body .cmd { color: #dfe9ff; }
 .caret { display: inline-block; width: 8px; height: 14px; background: #9dbdf5;
   vertical-align: text-bottom; margin-left: 1px; animation: blink 1s steps(1) infinite; }
@@ -283,7 +283,7 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
   border: 1px solid rgba(76,200,130,.4); background: rgba(16,50,34,.4); white-space: nowrap;
   opacity: 0; transform: translateY(12px) scale(.9); transition: all .5s cubic-bezier(.2,.9,.3,1.2); }
 .clip-entry.on { opacity: 1; transform: none; }
-.clip-queue { padding: 0; display: flex; flex-direction: column; overflow: hidden; grid-row: 1 / span 2; }
+.clip-queue { padding: 0; display: flex; flex-direction: column; overflow: hidden; grid-column: 2; grid-row: 1 / span 2; }
 .clip-q-head { height: 36px; flex: none; display: flex; align-items: center; gap: 9px; padding: 0 14px;
   background: #101627; border-bottom: 1px solid rgba(130,160,230,.14); font-size: 13px; color: #eef3ff; font-weight: 600; }
 .clip-auto { font-size: 10.5px; font-weight: 400; color: #8fd8a0; border: 1px solid rgba(76,200,130,.4);
@@ -295,7 +295,7 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
 .clip-item.on { opacity: 1; transform: none; }
 .clip-item .ci-body { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 .clip-item .ci-time { font-size: 10.5px; color: #6d7fa6; margin-top: 3px; }
-.clip-item .ci-ok { position: absolute; right: 10px; top: 8px; font-size: 11px; color: #8fd8a0; opacity: 0; transition: opacity .4s; }
+.clip-item .ci-ok { position: absolute; right: 12px; bottom: 8px; font-size: 11px; color: #8fd8a0; opacity: 0; transition: opacity .4s; }
 .clip-item.sent { border-color: rgba(76,200,130,.45); }
 .clip-item.sent .ci-ok { opacity: 1; }
 .clip-hint { font-size: 11.5px; color: #6d7fa6; padding: 2px 14px 0; }
@@ -506,14 +506,14 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
 
     <!-- 场景 2 · 散落与收敛 -->
     <section class="scene" id="s2" data-d="9">
-      <div class="cam">
+      <div class="cam" id="cam2">
         <div id="stars2"></div>
         <div class="caption-a">你的时间，散落在各个角落…</div>
         <div class="caption-b">统统收进同一份日程</div>
         <div class="float-card glass float-a" style="left:8%;top:24%">
           <span class="dot" style="background:#3B82F6"></span>
           <div>课程表<small>躺在教务系统里</small></div></div>
-        <div class="float-card glass float-b" style="left:63%;top:17%">
+        <div class="float-card glass float-b" style="left:63%;top:21%">
           <span class="dot" style="background:#F59E0B"></span>
           <div>作业 DDL<small>混在群聊记录中</small></div></div>
         <div class="float-card glass float-a" style="left:13%;top:58%">
@@ -567,7 +567,7 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
             <p>体育（移到 14:00–15:00）与 组会（14:00–15:00）重叠。重叠日程可以创建，但提醒会同时触发。</p>
             <div class="btns"><span class="no">调整时间</span><span class="ok">仍然移动</span></div>
           </div>
-          <div class="toast" id="toast3">已移动到周五 16:00 · Ctrl+Z 可撤销</div>
+          <div class="toast" id="toast3" style="bottom:64px">已移动到周五 16:00 · Ctrl+Z 可撤销</div>
         </div>
       </div>
     </section>
@@ -589,8 +589,8 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
             <div class="d4-tick" style="left:71.4%"><span>6:00</span></div>
             <div class="d4-tick" style="left:85.7%"><span>8:00</span></div>
             <div class="d4-seam" id="d4seam" style="left:57.1%"><em>显示日边界 · 04:00</em></div>
-            <div class="d4-block" id="d4b1" style="left:25%;width:11%"><b>联机开黑</b><span>23:30 – 01:00</span></div>
-            <div class="d4-block" id="d4b2" style="left:36.5%;width:11.5%"><b>赶论文 DDL</b><span>01:00 – 02:30</span></div>
+            <div class="d4-block" id="d4b1" style="left:29.2%;width:12.5%"><b>联机开黑</b><span>23:30 – 01:00</span></div>
+            <div class="d4-block" id="d4b2" style="left:41.7%;width:12.5%"><b>赶论文 DDL</b><span>01:00 – 02:30</span></div>
             <div class="d4-block" id="d4b3" style="left:85.7%;width:12.5%"><b>高等数学</b><span>08:00 – 09:45</span></div>
           </div>
           <div class="d4-zones">
@@ -670,7 +670,7 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
           </div>
         </div>
         <div class="drag-chip" id="clip-fly" style="left:18%;top:44%">📋 检测到复制</div>
-        <div class="toast" id="toast6" style="bottom:auto;top:26px">已发送到新会话 · AI 正在读取</div>
+        <div class="toast" id="toast6">已发送到新会话 · AI 正在读取</div>
       </div>
     </section>
 
@@ -835,14 +835,9 @@ function setCaption(si, at, text, holdSec) {
   beat(si, at + (holdSec ?? 4), () => capEl.classList.remove("show"));
 }
 /* 时钟驱动打字机：pause/跳转安全 */
-function typeText(si, at, cps, el, text, wrap) {
+function typeText(si, at, cps, el, text) {
   tween(si, at, at + text.length / cps, p => {
     el.textContent = text.slice(0, Math.round(p * text.length));
-    if (wrap) { // 超宽时左移，保持光标可见
-      const line = wrap.parentElement;
-      const over = wrap.offsetWidth - (line.clientWidth - 16);
-      wrap.style.transform = over > 0 ? `translateX(${-over}px)` : "";
-    }
   });
 }
 
@@ -970,7 +965,8 @@ RESETS[2] = () => {
 /* 拖拽：把块提升为网格级绝对定位（像素几何），沿弧线插值 */
 function liftBlock(b, dayIdx, startH, durH) {
   const colW = (rg3.clientWidth - GUT) / 7;
-  b.classList.add("dragging"); rg3.appendChild(b);
+  b.classList.remove("pop"); b.classList.add("dragging"); rg3.appendChild(b);
+  b.style.left = "0px"; b.style.top = "0px"; // 换父级后清零原列内偏移，translate 即网格坐标
   b.style.width = (colW - 5) + "px";
   return { fromX: GUT + dayIdx * colW + 2, fromY: (startH - H0) * HPX + 1, h: durH * HPX - 3, colW };
 }
@@ -1002,7 +998,7 @@ tween(2, 10.4, 11.8, p => { if (!dragGeom) return; const e = ease(p);
   const x = dragGeom.fromX, y = dragGeom.fromY - 2 * HPX * e;
   E.pe.style.transform = `translate(${x}px, ${y}px) translateY(${-16 * Math.sin(Math.PI * e)}px)`; });
 tween(2, 11.6, 13.4, p => { const e = ease(p);
-  cam3.style.transform = `scale(${1.05 + .14 * Math.sin(Math.PI * e)}) translateX(${-7 * e}%)`; });
+  cam3.style.transform = `scale(${1 + .18 * e}) translate(${3 * e}%, ${-2 * e}%)`; });
 beat(2, 11.9, () => document.getElementById("conflict3").classList.add("on"));
 beat(2, 13.7, () => { document.getElementById("conflict3").classList.remove("on"); if (E.pe._ghost) E.pe._ghost.remove(); });
 tween(2, 13.7, 15.3, p => { if (!dragGeom) return; const e = ease(p);
@@ -1021,7 +1017,7 @@ beat(2, 18.3, () => { rg3._m.remove();
   const b = block(days3[5], 10, 2, C.study, "周末自习", "草稿 · 已建条目"); b.classList.add("pop"); });
 setCaption(2, 18.7, "空白处拖一下，就是一条新日程", 2.2);
 tween(2, 15.4, 21, p => { const e = ease(p);
-  cam3.style.transform = `scale(${1.19 - .19 * e}) translateX(${-7 + 7 * e}%)`; });
+  cam3.style.transform = `scale(${1.18 - .18 * e}) translate(${3 - 3 * e}%, ${-2 + 2 * e}%)`; });
 
 /* ---- 场景 4（index 3）：04:00 开始的一天 ---- */
 const cam4 = document.getElementById("cam4");
@@ -1030,7 +1026,7 @@ RESETS[3] = () => {
     .forEach(id => document.getElementById(id).classList.remove("on"));
   cam4.style.transform = "";
 };
-tween(3, 0, 6, p => cam4.style.transform = `scale(${1.06 - .06 * easeOut(p)})`);
+tween(3, 0, 7, p => cam4.style.transform = `scale(${1.1 - .1 * easeOut(p)})`);
 beat(3, 0.7, () => document.getElementById("d4seam").classList.add("on"));
 beat(3, 1.6, () => document.getElementById("d4b1").classList.add("on"));
 beat(3, 2.1, () => document.getElementById("d4b2").classList.add("on"));
@@ -1039,7 +1035,7 @@ beat(3, 5.0, () => document.getElementById("d4b3").classList.add("on"));
 beat(3, 5.6, () => document.getElementById("d4z2").classList.add("on"));
 beat(3, 7.0, () => document.getElementById("d4c1").classList.add("on"));
 beat(3, 7.8, () => document.getElementById("d4c2").classList.add("on"));
-setCaption(3, 1.2, "显示日按 04:00 切分 · 0–4 点算前一天", 4.0);
+setCaption(3, 1.2, "过了凌晨 4 点，才算新的一天", 4.0);
 setCaption(3, 6.0, "熬夜排的事，落在「今晚」而不是「明天」", 4.0);
 
 /* ---- 场景 5（index 4）：AI + CLI ---- */
@@ -1049,23 +1045,23 @@ RESETS[4] = () => {
   ["json5", "json6"].forEach(id => document.getElementById(id).classList.remove("on"));
   document.getElementById("line2").style.opacity = "0";
   ["cmd5", "cmd6"].forEach(id => { document.getElementById(id).textContent = ""; });
-  ["cw1", "cw2"].forEach(id => document.getElementById(id).style.transform = "");
   document.getElementById("toast5").classList.remove("on");
+  document.getElementById("cam5").style.transform = "";
 };
+tween(4, 0, 9, p => document.getElementById("cam5").style.transform =
+  `scale(${1.05 - .05 * easeOut(p)})`);
 beat(4, 0.7, () => document.getElementById("m-user").classList.add("on"));
 beat(4, 1.6, () => document.getElementById("m-typing").classList.add("on"));
 beat(4, 3.4, () => { document.getElementById("m-typing").classList.remove("on");
   document.getElementById("m-bot").classList.add("on"); });
 typeText(4, 1.0, 30, document.getElementById("cmd5"),
-  "schedule entry create --title 组会 --start 2026-11-11T14:00:00+08:00 --end 15:00 --location 教三-401 --category meeting",
-  document.getElementById("cw1"));
+  "schedule entry create --title 组会 --start 2026-11-11T14:00:00+08:00 --end 15:00 --location 教三-401 --category meeting");
 beat(4, 5.4, () => document.getElementById("json5").classList.add("on"));
 beat(4, 7.8, () => { document.getElementById("m-bot2").classList.add("on");
   document.getElementById("line2").style.opacity = "1"; });
 typeText(4, 8.1, 26, document.getElementById("cmd6"),
-  "schedule entry update ent_3f9k --remind-lead 1440",
-  document.getElementById("cw2"));
-beat(4, 9.6, () => document.getElementById("json6").classList.add("on"));
+  "schedule entry update ent_3f9k --remind-lead 1440");
+beat(4, 10.1, () => document.getElementById("json6").classList.add("on"));
 setCaption(4, 1.0, "对 AI 说一句就够了", 3.0);
 setCaption(4, 5.6, "Agent 只带一个 schedule CLI · 按需发现 · 不占常态提示词", 4.2);
 beat(4, 12.6, () => document.getElementById("toast5").classList.add("on"));
@@ -1084,14 +1080,14 @@ RESETS[5] = () => {
   document.getElementById("toast6").classList.remove("on");
   cam6.style.transform = "";
 };
-tween(5, 0, 6, p => cam6.style.transform = `scale(${1.05 - .05 * easeOut(p)})`);
+tween(5, 0, 7, p => cam6.style.transform = `scale(${1.09 - .09 * easeOut(p)})`);
 beat(5, 1.3, () => document.getElementById("hl1").classList.add("on"));
 beat(5, 1.8, () => document.getElementById("hl2").classList.add("on"));
 beat(5, 2.3, () => document.getElementById("hl3").classList.add("on"));
 beat(5, 2.9, () => document.getElementById("clip-ctrlc").classList.add("on"));
 beat(5, 3.6, () => flyEl.classList.add("on"));
 tween(5, 3.7, 4.7, p => { const e = ease(p);
-  flyEl.style.left = (18 + 48 * e) + "%"; flyEl.style.top = (44 - 3 * e) + "%";
+  flyEl.style.left = (18 + 38 * e) + "%"; flyEl.style.top = (44 - 28 * e) + "%";
   flyEl.style.transform = `scale(${1 - .25 * e}) rotate(${-5 * Math.sin(Math.PI * e)}deg)`; });
 beat(5, 4.8, () => { flyEl.classList.remove("on");
   document.getElementById("clip-item1").classList.add("on"); });
@@ -1148,7 +1144,8 @@ beat(6, 10.9, () => { const go = document.getElementById("signin-go"); go.style.
   document.getElementById("signin-ok").classList.add("on"); });
 setCaption(6, 9.8, "当天课程，编辑器里直接 iclass 远程签到", 3.0);
 beat(6, 11.6, () => document.getElementById("toast4").classList.add("on"));
-tween(6, 0, 5, p => cam7.style.transform = `translateY(${10 - 10 * easeOut(p)}px)`);
+tween(6, 0, 6, p => { const e = easeOut(p);
+  cam7.style.transform = `translateY(${10 - 10 * e}px) scale(${1.07 - .07 * e})`; });
 
 /* ---- 场景 8（index 7）：二游 + 桌宠 ---- */
 const cam8 = document.getElementById("cam8");
@@ -1161,6 +1158,7 @@ RESETS[7] = () => {
   chip.classList.remove("on"); chip.style.left = "12%"; chip.style.top = "28%"; chip.style.transform = "";
   cam8.style.transform = "";
 };
+tween(7, 0, 7, p => cam8.style.transform = `scale(${1.06 - .06 * easeOut(p)})`);
 document.querySelectorAll("#s8 .game-row").forEach((row, i) => {
   beat(7, 0.4 + i * 0.32, () => row.classList.add("on"));
   beat(7, 0.64 + i * 0.32, () => row.querySelector(".tgl").classList.add("on"));
@@ -1171,7 +1169,7 @@ setCaption(7, 0.7, "二游前瞻适配器 · 官方时间自动加锁进日程",
 setCaption(7, 5.6, "桌宠桥 · 气泡提醒 / 拖段文字过去就能收纳", 4.0);
 beat(7, 8.1, () => document.getElementById("chip8").classList.add("on"));
 tween(7, 8.4, 9.5, p => { const e = ease(p); const chip = document.getElementById("chip8");
-  chip.style.left = (12 + 26 * e) + "%"; chip.style.top = (28 + 24 * e) + "%";
+  chip.style.left = (12 + 60 * e) + "%"; chip.style.top = (28 + 46 * e) + "%";
   chip.style.transform = `scale(${1 - .3 * e}) rotate(${-6 * Math.sin(Math.PI * e)}deg)`; });
 beat(7, 9.5, () => { document.getElementById("chip8").classList.remove("on");
   document.getElementById("pb1").classList.remove("on");
@@ -1188,11 +1186,10 @@ RESETS[8] = () => {
 };
 document.querySelectorAll("#s9 .pk").forEach((p, i) => beat(8, 0.4 + i * 0.5, () => p.classList.add("on")));
 document.querySelectorAll("#s9 .combo span").forEach((s, i) => beat(8, 2.8 + i * 0.45, () => s.classList.add("on")));
-setCaption(8, 1.2, "通用日程核心 + 来源适配器，按需组合", 3.4);
 beat(8, 7.4, () => document.querySelectorAll("#s9 .head, #s9 .pk-wrap, #s9 .combo")
   .forEach(n => n.style.opacity = "0"));
 beat(8, 7.9, () => document.getElementById("end9").classList.add("on"));
-tween(8, 8.2, 16, p => cam9.style.transform = `scale(${1 + .045 * easeOut(p)})`);
+tween(8, 8.2, 16, p => cam9.style.transform = `scale(${1 + .06 * easeOut(p)})`);
 
 /* ---- 场景 1 / 2 ---- */
 RESETS[0] = () => document.getElementById("cam1").style.transform = "";
@@ -1204,7 +1201,10 @@ RESETS[1] = () => {
   document.getElementById("conv-target").classList.remove("on");
   document.querySelector("#s2 .caption-b").style.opacity = "0";
   document.querySelector("#s2 .caption-a").style.opacity = "1";
+  document.getElementById("cam2").style.transform = "";
 };
+tween(1, 0, 7, p => document.getElementById("cam2").style.transform =
+  `scale(${1.06 - .06 * easeOut(p)})`);
 setCaption(1, 1.4, "课程、DDL、会议、直播……散落在每个应用里", 2.6);
 beat(1, 4.2, () => { document.querySelector("#s2 .caption-a").style.opacity = "0";
   document.querySelector("#s2 .caption-b").style.opacity = "1"; });

@@ -53,9 +53,9 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
 #caption { position: absolute; left: 64px; bottom: 58px; z-index: 40; display: flex; gap: 10px;
   align-items: center; opacity: 0; transform: translateY(14px); transition: opacity .5s, transform .5s; }
 #caption.show { opacity: 1; transform: none; }
-#caption .cap-bar { width: 4px; height: 34px; border-radius: 2px;
+#caption .cap-bar { width: 4px; height: 38px; border-radius: 2px;
   background: linear-gradient(180deg, #7cb0ff, #a78bfa); }
-#caption .cap-text { font-size: 26px; font-weight: 600; color: #e8eefc; letter-spacing: .5px;
+#caption .cap-text { font-size: 30px; font-weight: 600; color: #e8eefc; letter-spacing: .5px;
   text-shadow: 0 2px 14px rgba(10,15,30,.9); }
 
 /* ============ 场景 1 · 标题 ============ */
@@ -170,8 +170,8 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
 .rchip .tag { font-size: 10px; padding: 0 5px; border-radius: 4px; background: rgba(255,255,255,.08); }
 
 .toast { position: absolute; left: 50%; bottom: 54px; transform: translate(-50%, 16px); opacity: 0;
-  padding: 8px 18px; border-radius: 10px; background: rgba(16,24,44,.92); border: 1px solid rgba(130,160,230,.3);
-  color: #dce7fc; font-size: 13.5px; z-index: 30; transition: all .45s cubic-bezier(.2,.9,.3,1.2);
+  padding: 11px 24px; border-radius: 12px; background: rgba(16,24,44,.92); border: 1px solid rgba(130,160,230,.3);
+  color: #dce7fc; font-size: 19px; z-index: 30; transition: all .45s cubic-bezier(.2,.9,.3,1.2);
   box-shadow: 0 16px 40px rgba(0,0,0,.5); white-space: nowrap; }
 .toast.on { opacity: 1; transform: translate(-50%, 0); }
 .conflict-mini { position: absolute; z-index: 30; left: 50%; top: 46%; width: 320px; padding: 14px;
@@ -641,7 +641,6 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
             </div>
           </div>
         </div>
-        <div class="toast" id="toast5">CLI 为主 · 命令按需 --help 发现 · 不占常态系统提示词</div>
       </div>
     </section>
 
@@ -717,7 +716,6 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
             </div>
           </div>
         </div>
-        <div class="toast" id="toast4" style="bottom:36px">SPOC 作业已同步 · 宿主运行期间每 30 分钟自动刷新</div>
       </div>
     </section>
 
@@ -1080,7 +1078,6 @@ RESETS[4] = () => {
   ["json5", "json6"].forEach(id => document.getElementById(id).classList.remove("on"));
   document.getElementById("line2").style.opacity = "0";
   ["cmd5", "cmd6"].forEach(id => { document.getElementById(id).textContent = ""; });
-  document.getElementById("toast5").classList.remove("on");
 };
 beat(4, 0.7, () => document.getElementById("m-user").classList.add("on"));
 beat(4, 1.6, () => document.getElementById("m-typing").classList.add("on"));
@@ -1096,7 +1093,7 @@ typeText(4, 8.1, 26, document.getElementById("cmd6"),
 beat(4, 10.1, () => document.getElementById("json6").classList.add("on"));
 setCaption(4, 1.0, "对 AI 说一句就够了", 3.0);
 setCaption(4, 5.6, "每个日程，都有一条可复查的命令", 4.0);
-beat(4, 11.2, () => document.getElementById("toast5").classList.add("on"));
+setCaption(4, 11.2, "CLI 为主 · 命令按需 --help 发现 · 不占常态系统提示词", 2.8);
 
 /* ---- 场景 6（index 5）：剪贴板捕获 ---- */
 const cam6 = document.getElementById("cam6");
@@ -1123,7 +1120,7 @@ tween(5, 3.7, 4.7, p => { const e = ease(p);
   flyEl.style.transform = `scale(${1 - .25 * e}) rotate(${-5 * Math.sin(Math.PI * e)}deg)`; });
 beat(5, 4.8, () => { flyEl.classList.remove("on");
   document.getElementById("clip-item1").classList.add("on"); });
-setCaption(5, 5.4, "复制的内容自动进队列 · 看到就存，不怕忘", 4.0);
+setCaption(5, 5.4, "复制的内容自动进队列 · 看到就存，不怕忘", 2.4);
 beat(5, 6.6, () => document.getElementById("clip-send").classList.add("hot"));
 beat(5, 7.7, () => { const send = document.getElementById("clip-send");
   send.classList.remove("hot"); send.classList.add("hit"); });
@@ -1133,7 +1130,7 @@ beat(5, 8.8, () => document.getElementById("ce1").classList.add("on"));
 beat(5, 9.4, () => document.getElementById("ce2").classList.add("on"));
 beat(5, 10.0, () => document.getElementById("ce3").classList.add("on"));
 setCaption(5, 9.8, "一键发到新会话，AI 把安排写进日程", 2.8);
-beat(5, 12.6, () => document.getElementById("toast6").classList.remove("on"));
+beat(5, 9.6, () => document.getElementById("toast6").classList.remove("on"));
 
 /* ---- 场景 7（index 6）：北航导入 ---- */
 const days4 = buildGrid("rg4", 30);
@@ -1147,7 +1144,6 @@ RESETS[6] = () => {
   document.getElementById("signin4").classList.remove("on");
   document.getElementById("signin-go").style.display = ""; document.getElementById("signin-go").style.opacity = "";
   document.getElementById("signin-ok").classList.remove("on");
-  document.getElementById("toast4").classList.remove("on");
   days4.forEach(d => d.querySelectorAll(".rblock").forEach(n => n.remove()));
   cam7.style.transform = "";
 };
@@ -1169,13 +1165,12 @@ const fill4 = [
 fill4.forEach((f, i) => beat(6, 5.0 + i * 0.22, () => {
   const b = block(days4[f[0]], f[1], f[2], f[3], f[4], ""); b.classList.add("pop"); }));
 setCaption(6, 0.9, "来源适配器示例：北航教务 · 学号密码一次导入", 3.4);
-setCaption(6, 7.6, "课表 · 考试 · SPOC 作业 · 博雅，同一次登录全进来", 3.6);
+setCaption(6, 7.6, "课表 · 考试 · SPOC 作业 · 博雅，同一次登录全进来", 2.0);
 beat(6, 9.4, () => document.getElementById("signin4").classList.add("on"));
 beat(6, 10.2, () => document.getElementById("signin-go").style.opacity = ".55");
 beat(6, 10.9, () => { const go = document.getElementById("signin-go"); go.style.display = "none";
   document.getElementById("signin-ok").classList.add("on"); });
-setCaption(6, 9.8, "当天课程，编辑器里直接 iclass 远程签到", 2.4);
-beat(6, 11.6, () => document.getElementById("toast4").classList.add("on"));
+setCaption(6, 9.8, "当天课程可 iclass 签到 · SPOC 每 30 分钟自动刷新", 2.4);
 tween(6, 0, 6, p => { const e = easeOut(p);
   cam7.style.transform = `translateY(${10 - 10 * e}px) scale(${1.07 - .07 * e})`; });
 

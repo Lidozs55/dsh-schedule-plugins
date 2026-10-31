@@ -53,9 +53,9 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
 #caption { position: absolute; left: 64px; bottom: 58px; z-index: 40; display: flex; gap: 10px;
   align-items: center; opacity: 0; transform: translateY(14px); transition: opacity .5s, transform .5s; }
 #caption.show { opacity: 1; transform: none; }
-#caption .cap-bar { width: 4px; height: 30px; border-radius: 2px;
+#caption .cap-bar { width: 4px; height: 34px; border-radius: 2px;
   background: linear-gradient(180deg, #7cb0ff, #a78bfa); }
-#caption .cap-text { font-size: 21px; font-weight: 600; color: #e8eefc; letter-spacing: .5px;
+#caption .cap-text { font-size: 26px; font-weight: 600; color: #e8eefc; letter-spacing: .5px;
   text-shadow: 0 2px 14px rgba(10,15,30,.9); }
 
 /* ============ 场景 1 · 标题 ============ */
@@ -493,7 +493,7 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
     <div class="bg-deep"></div>
 
     <!-- 场景 1 · 标题：通用日程软件 -->
-    <section class="scene" id="s1" data-d="7.5">
+    <section class="scene" id="s1" data-d="6.0">
       <div class="cam" id="cam1">
         <div class="gridfloor"></div>
         <div id="stars1"></div>
@@ -513,7 +513,7 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
     </section>
 
     <!-- 场景 2 · 散落与收敛 -->
-    <section class="scene" id="s2" data-d="9">
+    <section class="scene" id="s2" data-d="8">
       <div class="cam">
         <div id="stars2"></div>
         <div class="caption-a">你的时间，散落在各个角落…</div>
@@ -581,7 +581,7 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
     </section>
 
     <!-- 场景 4 · 04:00 开始的一天 -->
-    <section class="scene" id="s4" data-d="11">
+    <section class="scene" id="s4" data-d="10.2">
       <div class="cam" id="cam4">
         <div class="day400 glass">
           <div class="d4-head">
@@ -614,7 +614,7 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
     </section>
 
     <!-- 场景 5 · AI + CLI（CLI 为主） -->
-    <section class="scene" id="s5" data-d="16">
+    <section class="scene" id="s5" data-d="14">
       <div class="cam" id="cam5">
         <div class="cols">
           <div class="chat glass">
@@ -646,7 +646,7 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
     </section>
 
     <!-- 场景 6 · 剪贴板捕获 -->
-    <section class="scene" id="s6" data-d="14">
+    <section class="scene" id="s6" data-d="13.2">
       <div class="cam" id="cam6">
         <div class="clip-cols">
           <div class="clip-src glass">
@@ -683,7 +683,7 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
     </section>
 
     <!-- 场景 7 · 来源适配器示例：北航教务 -->
-    <section class="scene" id="s7" data-d="13">
+    <section class="scene" id="s7" data-d="12.4">
       <div class="cam" id="cam7">
         <div class="cols">
           <div class="card-modal glass">
@@ -761,7 +761,7 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
     </section>
 
     <!-- 场景 9 · 插件矩阵 + 尾声 -->
-    <section class="scene" id="s9" data-d="16">
+    <section class="scene" id="s9" data-d="14.5">
       <div class="cam" id="cam9">
         <div class="head">
           <div class="h1">一个核心，适配器按需装</div>
@@ -1071,7 +1071,7 @@ beat(3, 5.6, () => document.getElementById("d4z2").classList.add("on"));
 beat(3, 7.0, () => document.getElementById("d4c1").classList.add("on"));
 beat(3, 7.8, () => document.getElementById("d4c2").classList.add("on"));
 setCaption(3, 1.2, "过了凌晨 4 点，才算新的一天", 4.0);
-setCaption(3, 6.0, "熬夜排的事，落在「今晚」而不是「明天」", 4.0);
+setCaption(3, 6.0, "熬夜排的事，落在「今晚」而不是「明天」", 3.4);
 
 /* ---- 场景 5（index 4）：AI + CLI ---- */
 RESETS[4] = () => {
@@ -1095,8 +1095,8 @@ typeText(4, 8.1, 26, document.getElementById("cmd6"),
   "schedule entry update ent_3f9k --remind-lead 1440");
 beat(4, 10.1, () => document.getElementById("json6").classList.add("on"));
 setCaption(4, 1.0, "对 AI 说一句就够了", 3.0);
-setCaption(4, 5.6, "Agent 只带一个 schedule CLI · 按需发现 · 不占常态提示词", 4.2);
-beat(4, 12.6, () => document.getElementById("toast5").classList.add("on"));
+setCaption(4, 5.6, "每个日程，都有一条可复查的命令", 4.0);
+beat(4, 11.2, () => document.getElementById("toast5").classList.add("on"));
 
 /* ---- 场景 6（index 5）：剪贴板捕获 ---- */
 const cam6 = document.getElementById("cam6");
@@ -1132,8 +1132,8 @@ beat(5, 8.0, () => { document.getElementById("clip-item1").classList.add("sent")
 beat(5, 8.8, () => document.getElementById("ce1").classList.add("on"));
 beat(5, 9.4, () => document.getElementById("ce2").classList.add("on"));
 beat(5, 10.0, () => document.getElementById("ce3").classList.add("on"));
-setCaption(5, 9.8, "一键发到新会话，AI 把安排写进日程", 3.2);
-beat(5, 12.9, () => document.getElementById("toast6").classList.remove("on"));
+setCaption(5, 9.8, "一键发到新会话，AI 把安排写进日程", 2.8);
+beat(5, 12.6, () => document.getElementById("toast6").classList.remove("on"));
 
 /* ---- 场景 7（index 6）：北航导入 ---- */
 const days4 = buildGrid("rg4", 30);
@@ -1174,7 +1174,7 @@ beat(6, 9.4, () => document.getElementById("signin4").classList.add("on"));
 beat(6, 10.2, () => document.getElementById("signin-go").style.opacity = ".55");
 beat(6, 10.9, () => { const go = document.getElementById("signin-go"); go.style.display = "none";
   document.getElementById("signin-ok").classList.add("on"); });
-setCaption(6, 9.8, "当天课程，编辑器里直接 iclass 远程签到", 3.0);
+setCaption(6, 9.8, "当天课程，编辑器里直接 iclass 远程签到", 2.4);
 beat(6, 11.6, () => document.getElementById("toast4").classList.add("on"));
 tween(6, 0, 6, p => { const e = easeOut(p);
   cam7.style.transform = `translateY(${10 - 10 * e}px) scale(${1.07 - .07 * e})`; });
@@ -1217,16 +1217,16 @@ RESETS[8] = () => {
 };
 document.querySelectorAll("#s9 .pk").forEach((p, i) => beat(8, 0.4 + i * 0.5, () => p.classList.add("on")));
 document.querySelectorAll("#s9 .combo span").forEach((s, i) => beat(8, 2.8 + i * 0.45, () => s.classList.add("on")));
-beat(8, 7.4, () => document.querySelectorAll("#s9 .head, #s9 .pk-wrap, #s9 .combo")
+beat(8, 6.2, () => document.querySelectorAll("#s9 .head, #s9 .pk-wrap, #s9 .combo")
   .forEach(n => n.style.opacity = "0"));
-beat(8, 7.9, () => document.getElementById("end9").classList.add("on"));
-tween(8, 8.2, 16, p => cam9.style.transform = `scale(${1 + .06 * easeOut(p)})`);
+beat(8, 6.7, () => document.getElementById("end9").classList.add("on"));
+tween(8, 7.0, 14.5, p => cam9.style.transform = `scale(${1 + .06 * easeOut(p)})`);
 
 /* ---- 场景 1 / 2 ---- */
 RESETS[0] = () => document.getElementById("cam1").style.transform = "";
-tween(0, 0, 7.5, p => document.getElementById("cam1").style.transform =
+tween(0, 0, 6, p => document.getElementById("cam1").style.transform =
   `scale(${1.16 - .16 * easeOut(p)}) translateY(${8 - 8 * easeOut(p)}px)`);
-setCaption(0, 1.4, "一个通用日程软件，长在 DSH 宿主里", 3.4);
+setCaption(0, 1.4, "一个通用日程软件，长在 DSH 宿主里", 3.0);
 RESETS[1] = () => {
   document.querySelectorAll("#s2 .float-card").forEach(c => { c.style.opacity = ""; c.style.transform = ""; });
   document.getElementById("conv-target").classList.remove("on");

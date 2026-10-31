@@ -154,6 +154,14 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
   background: rgba(59,130,246,.12); z-index: 1; }
 .dragging { opacity: .6; z-index: 6 !important; box-shadow: 0 14px 34px rgba(0,0,0,.55); }
 
+/* s3 鼠标光标（拖拽 / 框选叙事的“手”） */
+#cursor3 { position: absolute; left: 0; top: 0; z-index: 35; opacity: 0;
+  transition: opacity .25s; filter: drop-shadow(0 3px 9px rgba(0,0,0,.6));
+  pointer-events: none; will-change: transform; }
+#cursor3.on { opacity: 1; }
+#cursor3 svg { display: block; transform-origin: 5px 2px; transition: transform .12s; }
+#cursor3.press svg { transform: scale(.82); }
+
 .rstrip { flex: none; display: flex; gap: 7px; padding: 7px 10px; border-top: 1px solid rgba(130,160,230,.14); }
 .rchip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 11px; border-radius: 7px;
   background: rgba(56,74,120,.4); border: 1px solid rgba(130,160,230,.2); font-size: 12px; color: #d4dff6; line-height: 20px; }
@@ -506,7 +514,7 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
 
     <!-- 场景 2 · 散落与收敛 -->
     <section class="scene" id="s2" data-d="9">
-      <div class="cam" id="cam2">
+      <div class="cam">
         <div id="stars2"></div>
         <div class="caption-a">你的时间，散落在各个角落…</div>
         <div class="caption-b">统统收进同一份日程</div>
@@ -554,7 +562,7 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
               <div class="today"><em>今天</em>三 11-04</div><div>四 11-05</div>
               <div>五 11-06</div><div>六 11-07</div><div>日 11-08</div>
             </div>
-            <div class="rgrid" id="rg3"></div>
+            <div class="rgrid" id="rg3"><div id="cursor3"><svg width="22" height="27" viewBox="0 0 22 27"><path d="M5 2 L5 21.5 L10.2 16.7 L13.4 24.4 L17 22.9 L13.7 15.4 L20.5 15.4 Z" fill="#f4f7ff" stroke="#141c33" stroke-width="1.6" stroke-linejoin="round"/></svg></div></div>
           </div>
           <div class="rstrip" id="strip3">
             <span class="rchip overdue pop" style="animation-delay:.3s"><span class="tag">已过期</span>线代作业 P128</span>
@@ -957,6 +965,7 @@ RESETS[2] = () => {
     b.classList.remove("pop", "dragging"); b.style.left = ""; b.style.width = ""; });
   days3[2].appendChild(E.pe); E.pe.style.top = ((16 - H0) * HPX + 1) + "px"; // 归位周三
   days3[2].querySelectorAll(".rghost,.rmarquee").forEach(n => n.remove());
+  cursor3.classList.remove("on", "press"); rg3._m = null; mqGeom = null;
   document.getElementById("conflict3").classList.remove("on");
   document.getElementById("toast3").classList.remove("on");
   cam3.style.transform = "";
@@ -985,39 +994,65 @@ wave.forEach((b, i) => beat(2, 0.7 + i * 0.3, () => { b.style.opacity = ""; b.cl
 setCaption(2, 1.2, "整周安排 · 一屏看清", 3.6);
 setCaption(2, 6.2, "今天在哪、接下来是什么，一眼看到", 3.4);
 
-/* 拖拽叙事：抓起体育(三16:00) → 试探(三14:00)冲突 → 改落(五16:00) */
-let dragGeom = null;
+/* 拖拽叙事：光标抓起体育(三16:00) → 试探(三14:00)冲突 → 改落(五16:00) → 滑到周六空白按下框选 → 松手成条 */
+const cursor3 = document.getElementById("cursor3");
+let dragGeom = null, mqGeom = null;
+const seekCursor = (x, y) => { cursor3.style.transform = `translate(${x}px, ${y}px)`; };
 beat(2, 10.4, () => {
   dragGeom = liftBlock(E.pe, 2, 16, 1);
   E.pe.style.transform = `translate(${dragGeom.fromX}px, ${dragGeom.fromY}px)`;
+  seekCursor(dragGeom.fromX + 14, dragGeom.fromY + 10);
+  cursor3.classList.add("on");
   const g = document.createElement("div"); g.className = "rghost pop"; g.textContent = "移到这里？";
   g.style.top = ((14 - H0) * HPX + 1) + "px"; g.style.height = (HPX - 3) + "px";
   days3[2].appendChild(g); E.pe._ghost = g;
 });
 tween(2, 10.4, 11.8, p => { if (!dragGeom) return; const e = ease(p);
-  const x = dragGeom.fromX, y = dragGeom.fromY - 2 * HPX * e;
-  E.pe.style.transform = `translate(${x}px, ${y}px) translateY(${-16 * Math.sin(Math.PI * e)}px)`; });
+  const x = dragGeom.fromX, y = dragGeom.fromY - 2 * HPX * e, arc = -16 * Math.sin(Math.PI * e);
+  E.pe.style.transform = `translate(${x}px, ${y}px) translateY(${arc}px)`;
+  seekCursor(x + 14, y + 10 + arc); });
 tween(2, 11.6, 13.4, p => { const e = ease(p);
   cam3.style.transform = `scale(${1 + .18 * e}) translate(${3 * e}%, ${-2 * e}%)`; });
 beat(2, 11.9, () => document.getElementById("conflict3").classList.add("on"));
 beat(2, 13.7, () => { document.getElementById("conflict3").classList.remove("on"); if (E.pe._ghost) E.pe._ghost.remove(); });
 tween(2, 13.7, 15.3, p => { if (!dragGeom) return; const e = ease(p);
   const x = dragGeom.fromX + 2 * dragGeom.colW * e;
-  const y = dragGeom.fromY - 2 * HPX * (1 - e);
-  E.pe.style.transform = `translate(${x}px, ${y}px) translateY(${-20 * Math.sin(Math.PI * e)}px)`; });
+  const y = dragGeom.fromY - 2 * HPX * (1 - e), arc = -20 * Math.sin(Math.PI * e);
+  E.pe.style.transform = `translate(${x}px, ${y}px) translateY(${arc}px)`;
+  seekCursor(x + 14, y + 10 + arc); });
 beat(2, 15.3, () => { if (dragGeom) { dropBlock(E.pe, 4, 16, 1); dragGeom = null; }
   document.getElementById("toast3").classList.add("on"); });
 beat(2, 17.1, () => document.getElementById("toast3").classList.remove("on"));
-/* 周六空白框选 → 草稿条目 */
-beat(2, 17.3, () => {
-  const m = document.createElement("div"); m.className = "rmarquee pop";
-  m.style.top = ((10 - H0) * HPX + 1) + "px"; m.style.height = (2 * HPX - 3) + "px";
-  days3[5].appendChild(m); rg3._m = m; });
-beat(2, 18.3, () => { rg3._m.remove();
-  const b = block(days3[5], 10, 2, C.study, "周末自习", "草稿 · 已建条目"); b.classList.add("pop"); });
-setCaption(2, 18.7, "空白处拖一下，就是一条新日程", 2.2);
-tween(2, 15.4, 21, p => { const e = ease(p);
+/* 相机归位 → 光标滑向周六空白 → 按下拖出选框 → 松手成条，镜头轻推跟随 */
+tween(2, 15.4, 16.8, p => { const e = ease(p);
   cam3.style.transform = `scale(${1.18 - .18 * e}) translate(${3 - 3 * e}%, ${-2 + 2 * e}%)`; });
+tween(2, 17.3, 17.9, p => { const e = ease(p);
+  const colW = (rg3.clientWidth - GUT) / 7;
+  const x0 = GUT + 4 * colW + 16, y0 = (16 - H0) * HPX + 11; // 松手点（周五 16:00 块上）
+  const x1 = GUT + 5 * colW + 26, y1 = (10 - H0) * HPX + 4;  // 框选起点（周六 10:00）
+  seekCursor(x0 + (x1 - x0) * e, y0 + (y1 - y0) * e - 26 * Math.sin(Math.PI * e)); });
+beat(2, 17.9, () => {
+  const colW = (rg3.clientWidth - GUT) / 7;
+  mqGeom = { x: GUT + 5 * colW + 26, y: (10 - H0) * HPX + 4, w: colW - 40, h: 2 * HPX - 12 };
+  const m = document.createElement("div"); m.className = "rmarquee";
+  m.style.left = mqGeom.x + "px"; m.style.top = mqGeom.y + "px";
+  m.style.width = "2px"; m.style.height = "2px";
+  rg3.appendChild(m); rg3._m = m; // 网格级定位，与光标/被拖块同坐标系
+  cursor3.classList.add("press");
+});
+tween(2, 17.9, 18.7, p => { const e = ease(p); const m = rg3._m; if (!m) return;
+  const w = 2 + (mqGeom.w - 2) * e, h = 2 + (mqGeom.h - 2) * e;
+  m.style.width = w + "px"; m.style.height = h + "px";
+  seekCursor(mqGeom.x + w, mqGeom.y + h); });
+tween(2, 17.9, 18.7, p => { const e = ease(p);
+  cam3.style.transform = `scale(${1 + .1 * e}) translate(${-3 * e}%, ${1.5 * e}%)`; });
+beat(2, 18.7, () => { cursor3.classList.remove("press");
+  if (rg3._m) { rg3._m.remove(); rg3._m = null; }
+  const b = block(days3[5], 10, 2, C.study, "周末自习", "草稿 · 已建条目"); b.classList.add("pop"); });
+beat(2, 19.0, () => cursor3.classList.remove("on"));
+setCaption(2, 18.7, "空白处拖一下，就是一条新日程", 2.2);
+tween(2, 18.9, 21, p => { const e = ease(p);
+  cam3.style.transform = `scale(${1.1 - .1 * e}) translate(${-3 + 3 * e}%, ${1.5 - 1.5 * e}%)`; });
 
 /* ---- 场景 4（index 3）：04:00 开始的一天 ---- */
 const cam4 = document.getElementById("cam4");
@@ -1046,10 +1081,7 @@ RESETS[4] = () => {
   document.getElementById("line2").style.opacity = "0";
   ["cmd5", "cmd6"].forEach(id => { document.getElementById(id).textContent = ""; });
   document.getElementById("toast5").classList.remove("on");
-  document.getElementById("cam5").style.transform = "";
 };
-tween(4, 0, 9, p => document.getElementById("cam5").style.transform =
-  `scale(${1.05 - .05 * easeOut(p)})`);
 beat(4, 0.7, () => document.getElementById("m-user").classList.add("on"));
 beat(4, 1.6, () => document.getElementById("m-typing").classList.add("on"));
 beat(4, 3.4, () => { document.getElementById("m-typing").classList.remove("on");
@@ -1158,7 +1190,6 @@ RESETS[7] = () => {
   chip.classList.remove("on"); chip.style.left = "12%"; chip.style.top = "28%"; chip.style.transform = "";
   cam8.style.transform = "";
 };
-tween(7, 0, 7, p => cam8.style.transform = `scale(${1.06 - .06 * easeOut(p)})`);
 document.querySelectorAll("#s8 .game-row").forEach((row, i) => {
   beat(7, 0.4 + i * 0.32, () => row.classList.add("on"));
   beat(7, 0.64 + i * 0.32, () => row.querySelector(".tgl").classList.add("on"));
@@ -1201,10 +1232,7 @@ RESETS[1] = () => {
   document.getElementById("conv-target").classList.remove("on");
   document.querySelector("#s2 .caption-b").style.opacity = "0";
   document.querySelector("#s2 .caption-a").style.opacity = "1";
-  document.getElementById("cam2").style.transform = "";
 };
-tween(1, 0, 7, p => document.getElementById("cam2").style.transform =
-  `scale(${1.06 - .06 * easeOut(p)})`);
 setCaption(1, 1.4, "课程、DDL、会议、直播……散落在每个应用里", 2.6);
 beat(1, 4.2, () => { document.querySelector("#s2 .caption-a").style.opacity = "0";
   document.querySelector("#s2 .caption-b").style.opacity = "1"; });

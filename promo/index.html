@@ -78,7 +78,7 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
 #s1 .badges { display: flex; gap: 12px; margin-top: 10px; animation: fadeup .9s .8s ease both; }
 #s1 .badge { padding: 7px 20px; border-radius: 999px; font-size: 17px; color: #cfe0ff;
   border: 1px solid rgba(140,170,255,.3); background: rgba(40,60,110,.28); }
-#s1 .badge b { color: #8fd8ff; font-weight: 600; }
+#s1 .badge b { color: #8fd8ff; font-weight: 600; margin-right: 6px; }
 @keyframes fadeup { from { opacity: 0; transform: translateY(26px); } }
 
 /* ============ 场景 2 · 散落 → 收敛 ============ */
@@ -256,7 +256,8 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
 .caret { display: inline-block; width: 8px; height: 14px; background: #9dbdf5;
   vertical-align: text-bottom; margin-left: 1px; animation: blink 1s steps(1) infinite; }
 @keyframes blink { 50% { opacity: 0; } }
-.json div { opacity: 0; animation: fadeup .35s ease both; }
+.json div { opacity: 0; }
+.json.on div { opacity: 1; animation: fadeup .35s ease both; }
 .json .k { color: #7cb0ff; } .json .s { color: #9fe8b5; } .json .n { color: #f0a24a; }
 .json .ok-line { color: #8fd8a0; }
 
@@ -331,7 +332,7 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
 .prog li { list-style: none; display: flex; align-items: center; gap: 9px; font-size: 13px; color: #9fb0d6;
   opacity: 0; transform: translateX(-8px); transition: all .4s; }
 .prog li.on { opacity: 1; transform: none; }
-.prog li.done { color: #8fd8a0; }
+.prog li.done { opacity: 1; transform: none; color: #8fd8a0; }
 .prog .st { width: 17px; height: 17px; border-radius: 50%; border: 1.5px solid rgba(130,160,230,.4);
   display: inline-flex; align-items: center; justify-content: center; font-size: 10px; flex: none; }
 .prog li.on .st { border-color: #6fa4ff; border-top-color: transparent; animation: spin 1s linear infinite; }
@@ -521,7 +522,7 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
         <div class="float-card glass float-b" style="left:56%;top:62%">
           <span class="dot" style="background:#06B6D4"></span>
           <div>会议 / 组会<small>消息里一闪而过</small></div></div>
-        <div class="float-card glass float-a" style="left:37%;top:12%">
+        <div class="float-card glass float-a" style="left:40%;top:27%">
           <span class="dot" style="background:#A855F7"></span>
           <div>直播 / 活动<small>动态里刷到才算数</small></div></div>
         <div class="float-card glass float-b" style="left:35%;top:70%">
@@ -1045,10 +1046,7 @@ setCaption(3, 6.0, "熬夜排的事，落在「今晚」而不是「明天」", 
 RESETS[4] = () => {
   ["m-user", "m-bot", "m-bot2"].forEach(id => document.getElementById(id).classList.remove("on"));
   document.getElementById("m-typing").classList.remove("on");
-  ["json5", "json6"].forEach(id => { const j = document.getElementById(id);
-    j.querySelectorAll("div").forEach(d => { d.style.animation = "none"; void d.offsetWidth; d.style.animation = ""; }); });
-  document.getElementById("json5").classList.remove("on");
-  document.getElementById("json6").classList.remove("on");
+  ["json5", "json6"].forEach(id => document.getElementById(id).classList.remove("on"));
   document.getElementById("line2").style.opacity = "0";
   ["cmd5", "cmd6"].forEach(id => { document.getElementById(id).textContent = ""; });
   ["cw1", "cw2"].forEach(id => document.getElementById(id).style.transform = "");

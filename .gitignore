@@ -19,3 +19,6 @@ coverage/
 .idea/
 .DS_Store
 Thumbs.db
+promo/_qa.html
+.qa-shots/
+promo/_qa2.html

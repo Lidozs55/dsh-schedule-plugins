@@ -351,17 +351,6 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
 .pw-hint .shield { color: #8fd8a0; }
 #s7 .mini-panel { position: relative; border-radius: 14px; overflow: hidden; background: #0e1322;
   border: 1px solid rgba(130,160,230,.18); display: flex; flex-direction: column; animation: fadeup .8s .25s ease both; }
-.signin-editor { position: absolute; z-index: 30; right: 18px; top: 96px; width: 264px; padding: 14px;
-  border-radius: 12px; background: rgba(17,24,44,.97); border: 1px solid rgba(130,160,230,.3);
-  box-shadow: 0 22px 60px rgba(0,0,0,.6); opacity: 0; transform: translateY(10px) scale(.96);
-  transition: all .45s cubic-bezier(.2,.9,.3,1.2); }
-.signin-editor.on { opacity: 1; transform: none; }
-.signin-editor h4 { font-size: 14px; color: #eef3ff; margin-bottom: 4px; }
-.signin-editor .meta { font-size: 11.5px; color: #8ea3cc; margin-bottom: 10px; }
-.signin-editor .go { width: 100%; text-align: center; padding: 7px; border-radius: 8px;
-  background: #2f9e5b; color: #fff; font-size: 13px; font-weight: 600; margin-bottom: 8px; transition: opacity .3s; }
-.signin-editor .ok { text-align: center; font-size: 12.5px; color: #8fd8a0; opacity: 0; transition: opacity .4s; }
-.signin-editor .ok.on { opacity: 1; }
 
 /* ============ 场景 8 · 二游 + 桌宠 ============ */
 #s8 .cols { position: absolute; inset: 44px 48px; display: grid; grid-template-columns: 1fr 1fr; gap: 36px; }
@@ -650,7 +639,7 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
       <div class="cam" id="cam6">
         <div class="clip-cols">
           <div class="clip-src glass">
-            <div class="clip-src-bar"><span class="dots"><i style="background:#f4564e"></i><i style="background:#f0a24a"></i><i style="background:#2f9e5b"></i></span>群公告 · 今晚更新</div>
+            <div class="clip-src-bar"><span class="dots"><i style="background:#f4564e"></i><i style="background:#f0a24a"></i><i style="background:#2f9e5b"></i></span></div>
             <div class="clip-body">
               <div class="clip-line"><span class="hl" id="hl1">@所有人 周五 19:30 崩铁版本前瞻直播。</span></div>
               <div class="clip-line"><span class="hl" id="hl2">周五 14:00 大创组会，带进展 PPT。</span></div>
@@ -683,7 +672,7 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
     </section>
 
     <!-- 场景 7 · 来源适配器示例：北航教务 -->
-    <section class="scene" id="s7" data-d="13.6">
+    <section class="scene" id="s7" data-d="9.2">
       <div class="cam" id="cam7">
         <div class="cols">
           <div class="card-modal glass">
@@ -708,12 +697,6 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
                 <div></div><div>一</div><div>二</div><div class="today">三</div><div>四</div><div>五</div><div>六</div><div>日</div>
               </div>
               <div class="rgrid" id="rg4" style="grid-template-columns:30px repeat(7,1fr)"></div>
-            </div>
-            <div class="signin-editor" id="signin4">
-              <h4>信号与系统 · 周三 8:00</h4>
-              <div class="meta">新主楼 B407 · 教务导入</div>
-              <div class="go" id="signin-go">远程签到（iclass）</div>
-              <div class="ok" id="signin-ok">✓ 签到成功 · 07:59:03</div>
             </div>
           </div>
         </div>
@@ -773,7 +756,7 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
             <span class="role must">必装</span></div>
           <div class="pk glass"><span class="ic" style="background:linear-gradient(135deg,#e0483e,#f0a24a)">航</span>
             <h3>北航教务</h3><div class="nm">@lidozs55/dsh-schedule-buaa</div>
-            <p>整学期课表/考试 · SPOC 作业 · 博雅课程 · iclass 签到</p>
+            <p>整学期课表/考试 · SPOC 作业 · 博雅课程</p>
             <span class="role opt">来源适配器</span></div>
           <div class="pk glass"><span class="ic" style="background:linear-gradient(135deg,#a855f7,#38e0d0)">🎮</span>
             <h3>二游前瞻</h3><div class="nm">@lidozs55/dsh-schedule-gacha</div>
@@ -1145,9 +1128,6 @@ RESETS[6] = () => {
   const btn = document.getElementById("import-btn");
   btn.classList.remove("busy", "act");
   document.querySelectorAll("#prog4 li").forEach(li => { li.classList.remove("on", "done"); li.querySelector(".st").textContent = ""; });
-  document.getElementById("signin4").classList.remove("on");
-  document.getElementById("signin-go").style.display = ""; document.getElementById("signin-go").style.opacity = "";
-  document.getElementById("signin-ok").classList.remove("on");
   days4.forEach(d => d.querySelectorAll(".rblock").forEach(n => n.remove()));
   cam7.style.transform = "";
 };
@@ -1170,11 +1150,7 @@ fill4.forEach((f, i) => beat(6, 5.0 + i * 0.22, () => {
   const b = block(days4[f[0]], f[1], f[2], f[3], f[4], ""); b.classList.add("pop"); }));
 setCaption(6, 0.9, "来源适配器示例：北航教务 · 学号密码一次导入", 2.2);
 setCaption(6, 5.7, "课表 · 考试 · SPOC 作业 · 博雅，同一次登录全进来", 2.0);
-beat(6, 8.8, () => document.getElementById("signin4").classList.add("on"));
-beat(6, 9.6, () => document.getElementById("signin-go").style.opacity = ".55");
-beat(6, 10.3, () => { const go = document.getElementById("signin-go"); go.style.display = "none";
-  document.getElementById("signin-ok").classList.add("on"); });
-setCaption(6, 10.5, "当天课程可 iclass 签到 · SPOC 每 30 分钟自动刷新", 2.5);
+beat(6, 7.5, () => document.getElementById("import-btn").classList.remove("busy", "act")); // 导入完成，按钮抬起
 tween(6, 0, 6, p => { const e = easeOut(p);
   cam7.style.transform = `translateY(${10 - 10 * e}px) scale(${1.07 - .07 * e})`; });
 

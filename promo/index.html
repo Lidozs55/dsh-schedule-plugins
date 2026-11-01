@@ -136,7 +136,8 @@ html, body { height: 100%; background: #05070d; overflow: hidden;
   box-shadow: inset 1.5px 0 0 rgba(59,130,246,.35), inset -1.5px 0 0 rgba(59,130,246,.35); }
 .rhour { position: absolute; left: 0; right: 0; border-bottom: 1px solid rgba(130,160,230,.09); }
 .rnow { position: absolute; left: 0; right: 0; height: 0; border-top: 1.5px solid #f4564e; z-index: 2;
-  animation: nowpulse 2.4s ease-in-out infinite; }
+  opacity: 0; transition: opacity .5s; animation: nowpulse 2.4s ease-in-out infinite; }
+.rnow.on { opacity: 1; }
 .rnow::after { content: attr(data-label); position: absolute; right: 2px; top: -18px; font-size: 10px;
   color: #f8908a; background: rgba(20,8,8,.75); padding: 0 5px; border-radius: 4px; }
 @keyframes nowpulse { 50% { box-shadow: 0 0 12px rgba(244,86,78,.55); } }
@@ -966,6 +967,7 @@ RESETS[2] = () => {
   cursor3.classList.remove("on", "press"); rg3._m = null; mqGeom = null;
   document.getElementById("conflict3").classList.remove("on");
   document.getElementById("toast3").classList.remove("on");
+  now3.classList.remove("on");
   cam3.style.transform = "";
   document.querySelectorAll("#strip3 .rchip").forEach(c => { c.style.animation = "none"; void c.offsetWidth; c.style.animation = ""; });
 };
@@ -989,6 +991,7 @@ tween(2, 0, 4.5, p => { const e = easeOut(p);
   cam3.style.transform = `scale(${1.22 - .22 * e}) translate(${-3 + 3 * e}%, ${2 - 2 * e}%)`; });
 const wave = [E.gaoshu, E.ds, E.phys, E.eng, E.signal, E.comp, E.prob, E.zuhui, E.selfs, E.boya, E.pe, E.zzz];
 wave.forEach((b, i) => beat(2, 0.7 + i * 0.3, () => { b.style.opacity = ""; b.classList.add("pop"); }));
+beat(2, 2.2, () => now3.classList.add("on")); // 今日首块落位后，"当前时刻"线随日程显现
 setCaption(2, 1.0, "整周安排 · 一屏看清", 1.6);
 setCaption(2, 3.8, "今天在哪、接下来是什么，一眼看到", 1.8);
 
@@ -1124,6 +1127,7 @@ setCaption(5, 5.4, "复制的内容自动进队列 · 看到就存，不怕忘",
 beat(5, 6.6, () => document.getElementById("clip-send").classList.add("hot"));
 beat(5, 7.7, () => { const send = document.getElementById("clip-send");
   send.classList.remove("hot"); send.classList.add("hit"); });
+beat(5, 8.5, () => document.getElementById("clip-send").classList.remove("hit")); // 按下后抬起
 beat(5, 8.0, () => { document.getElementById("clip-item1").classList.add("sent");
   document.getElementById("toast6").classList.add("on"); });
 beat(5, 8.8, () => document.getElementById("ce1").classList.add("on"));

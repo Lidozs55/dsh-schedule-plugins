@@ -14,19 +14,28 @@
 
 | 包 | 作用 | 建议 |
 |---|---|---|
-| `@lidozs55/dsh-schedule` | 日程核心：日历条目、任务、提醒、`schedule` CLI、面板 UI | 必装 |
-| `@lidozs55/dsh-schedule-buaa` | 北航教务来源：整学期课表/考试导入、SPOC 作业待办、博雅课程、iclass 远程签到 | 北航学生装 |
-| `@lidozs55/dsh-schedule-gacha` | 二游前瞻：原神/崩铁/绝区零/鸣潮/终末地/异环的版本与前瞻直播写入日程 | 玩二游可选 |
-| `@lidozs55/dsh-schedule-bridge` | 桌宠桥：提醒气泡、任务状态上桌宠，拖文字给桌宠收纳 | 用桌宠可选 |
+| [`@lidozs55/dsh-schedule`](https://www.npmjs.com/package/@lidozs55/dsh-schedule) | 日程核心：日历条目、任务、提醒、`schedule` CLI、面板 UI | 必装 |
+| [`@lidozs55/dsh-schedule-buaa`](https://www.npmjs.com/package/@lidozs55/dsh-schedule-buaa) | 北航教务来源：整学期课表/考试导入、SPOC 作业待办、博雅课程 | 北航学生装 |
+| [`@lidozs55/dsh-schedule-gacha`](https://www.npmjs.com/package/@lidozs55/dsh-schedule-gacha) | 二游前瞻：原神/崩铁/绝区零/鸣潮/终末地/异环的版本与前瞻直播写入日程 | 玩二游可选 |
+| [`@lidozs55/dsh-schedule-bridge`](https://www.npmjs.com/package/@lidozs55/dsh-schedule-bridge) | 桌宠桥：提醒气泡、任务状态上桌宠，拖文字给桌宠收纳 | 用桌宠可选 |
 
 只装核心就是一个完整的通用日程软件；北航学生加装 buaa 适配器导入课表，想追前瞻直播再加 gacha，桌宠用户再加 bridge。
 
 ## 安装
 
-前提：已安装 DSH 宿主（developer preview）。
+前提：已安装 DeepSeek Harness（DSH）宿主（developer preview）。
 
-1. 打开宿主侧边栏 **Plugins** 页，安装上面的包名（npm 源）；先装核心，再装其他。
-2. 开发安装（改源码即生效）：Plugins 页用 `link:<本仓库对应插件目录的绝对路径>` 安装。
+1. 打开宿主侧边栏 **Plugins** 页，从 npm 源依次安装下面的包名（先核心，后可选）：
+
+   ```text
+   @lidozs55/dsh-schedule          # 日程核心 · 必装
+   @lidozs55/dsh-schedule-buaa     # 北航教务来源 · 北航学生装
+   @lidozs55/dsh-schedule-gacha    # 二游前瞻 · 玩二游可选
+   @lidozs55/dsh-schedule-bridge   # 桌宠桥 · 用桌宠可选
+   ```
+
+2. 开发安装（改源码即生效）：Plugins 页用 `link:<插件目录的绝对路径>` 安装，例如
+   `link:~/code/dsh-schedule-plugins/dsh-plugin/dsh-schedule`。
 3. 安装后侧边栏出现「日程」入口，设置里出现「日程设置」。
 
 ## 快速上手
@@ -43,7 +52,6 @@
 - **导入课表**：北航卡片填学号与统一认证密码，点「导入课表、考试与 SPOC 作业」。每学期做一次；密码仅当次使用，不保存。
 - **作业待办**：同一次导入会把 SPOC 未提交作业写成待办并持续刷新截止时间；已提交的不生成。宿主运行期间每 30 分钟自动刷新。
 - **博雅课程**：已选博雅随导入写入日历，退选后下次导入自动移除。
-- **远程签到**：手动同步后，当天北航课程的编辑器里有「远程签到」按钮（iclass）。
 - **二游前瞻**：打开对应游戏开关即可，每 6 小时自动更新；节奏不固定的可点「让 Agent 核对」。
 
 ## 为你的学校写适配器
@@ -70,6 +78,6 @@ Bug、功能建议、新学校适配、文档改进都欢迎提 [issue](../../is
 
 ## 特别鸣谢
 
-- **[UBAA](https://github.com/BUAASubnet/UBAA)**（MIT © 2026，BUAASubnet）：北航教务课表/考试、iclass 签到、SPOC 作业、博雅课程四个数据通道的接口逆向成果，是北航适配器的直接参考。
+- **[UBAA](https://github.com/BUAASubnet/UBAA)**（MIT © 2026，BUAASubnet）：北航教务课表/考试、SPOC 作业、博雅课程等数据通道的接口逆向成果，是北航适配器的直接参考。
 - **[Vikunja](https://vikunja.io)**（AGPL-3.0；仅借鉴产品设计，未复用代码）：提醒提前量与移动端触屏适配的设计参考。
 - **[gacha-calendar](https://gacha.modenc.top)**：二游前瞻插件的数据源服务。
